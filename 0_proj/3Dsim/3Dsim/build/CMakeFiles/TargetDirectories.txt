@@ -1,0 +1,3 @@
+/home/zmr/3Dsim/0_proj/3Dsim/3Dsim/build/CMakeFiles/rebuild_cache.dir
+/home/zmr/3Dsim/0_proj/3Dsim/3Dsim/build/CMakeFiles/edit_cache.dir
+/home/zmr/3Dsim/0_proj/3Dsim/3Dsim/build/CMakeFiles/My3Dsim.dir
