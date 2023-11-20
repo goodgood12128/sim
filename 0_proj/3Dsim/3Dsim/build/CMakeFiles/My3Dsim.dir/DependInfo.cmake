@@ -1,23 +1,21 @@
+
+# Consider dependencies only in project.
+set(CMAKE_DEPENDS_IN_PROJECT_ONLY OFF)
+
 # The set of languages for which implicit dependencies are needed:
 set(CMAKE_DEPENDS_LANGUAGES
-  "C"
   )
-# The set of files for implicit dependencies of each language:
-set(CMAKE_DEPENDS_CHECK_C
-  "/home/zmr/3Dsim/0_proj/3Dsim/3Dsim/avlTree.c" "/home/zmr/3Dsim/0_proj/3Dsim/3Dsim/build/CMakeFiles/My3Dsim.dir/avlTree.c.o"
-  "/home/zmr/3Dsim/0_proj/3Dsim/3Dsim/buffer.c" "/home/zmr/3Dsim/0_proj/3Dsim/3Dsim/build/CMakeFiles/My3Dsim.dir/buffer.c.o"
-  "/home/zmr/3Dsim/0_proj/3Dsim/3Dsim/fcl.c" "/home/zmr/3Dsim/0_proj/3Dsim/3Dsim/build/CMakeFiles/My3Dsim.dir/fcl.c.o"
-  "/home/zmr/3Dsim/0_proj/3Dsim/3Dsim/flash.c" "/home/zmr/3Dsim/0_proj/3Dsim/3Dsim/build/CMakeFiles/My3Dsim.dir/flash.c.o"
-  "/home/zmr/3Dsim/0_proj/3Dsim/3Dsim/ftl.c" "/home/zmr/3Dsim/0_proj/3Dsim/3Dsim/build/CMakeFiles/My3Dsim.dir/ftl.c.o"
-  "/home/zmr/3Dsim/0_proj/3Dsim/3Dsim/initialize.c" "/home/zmr/3Dsim/0_proj/3Dsim/3Dsim/build/CMakeFiles/My3Dsim.dir/initialize.c.o"
-  "/home/zmr/3Dsim/0_proj/3Dsim/3Dsim/interface.c" "/home/zmr/3Dsim/0_proj/3Dsim/3Dsim/build/CMakeFiles/My3Dsim.dir/interface.c.o"
-  "/home/zmr/3Dsim/0_proj/3Dsim/3Dsim/ssd.c" "/home/zmr/3Dsim/0_proj/3Dsim/3Dsim/build/CMakeFiles/My3Dsim.dir/ssd.c.o"
-  )
-set(CMAKE_C_COMPILER_ID "GNU")
 
-# The include file search paths:
-set(CMAKE_C_TARGET_INCLUDE_PATH
-  "../"
+# The set of dependency files which are needed:
+set(CMAKE_DEPENDS_DEPENDENCY_FILES
+  "/home/zmr/sim/0_proj/3Dsim/3Dsim/avlTree.c" "CMakeFiles/My3Dsim.dir/avlTree.c.o" "gcc" "CMakeFiles/My3Dsim.dir/avlTree.c.o.d"
+  "/home/zmr/sim/0_proj/3Dsim/3Dsim/buffer.c" "CMakeFiles/My3Dsim.dir/buffer.c.o" "gcc" "CMakeFiles/My3Dsim.dir/buffer.c.o.d"
+  "/home/zmr/sim/0_proj/3Dsim/3Dsim/fcl.c" "CMakeFiles/My3Dsim.dir/fcl.c.o" "gcc" "CMakeFiles/My3Dsim.dir/fcl.c.o.d"
+  "/home/zmr/sim/0_proj/3Dsim/3Dsim/flash.c" "CMakeFiles/My3Dsim.dir/flash.c.o" "gcc" "CMakeFiles/My3Dsim.dir/flash.c.o.d"
+  "/home/zmr/sim/0_proj/3Dsim/3Dsim/ftl.c" "CMakeFiles/My3Dsim.dir/ftl.c.o" "gcc" "CMakeFiles/My3Dsim.dir/ftl.c.o.d"
+  "/home/zmr/sim/0_proj/3Dsim/3Dsim/initialize.c" "CMakeFiles/My3Dsim.dir/initialize.c.o" "gcc" "CMakeFiles/My3Dsim.dir/initialize.c.o.d"
+  "/home/zmr/sim/0_proj/3Dsim/3Dsim/interface.c" "CMakeFiles/My3Dsim.dir/interface.c.o" "gcc" "CMakeFiles/My3Dsim.dir/interface.c.o.d"
+  "/home/zmr/sim/0_proj/3Dsim/3Dsim/ssd.c" "CMakeFiles/My3Dsim.dir/ssd.c.o" "gcc" "CMakeFiles/My3Dsim.dir/ssd.c.o.d"
   )
 
 # Targets to which this target links.

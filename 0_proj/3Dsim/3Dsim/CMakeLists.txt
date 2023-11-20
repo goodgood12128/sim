@@ -3,8 +3,8 @@ cmake_minimum_required(VERSION 3.10)
 project(My3Dsim)
 
 add_executable(My3Dsim
-    avlTree.c
     buffer.c
+    avlTree.c
     fcl.c
     flash.c
     ftl.c

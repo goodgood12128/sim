@@ -81,7 +81,7 @@ struct ssd_info *pre_process_page(struct ssd_info *ssd)
 
 	while (fgets(buffer_request, 200, ssd->tracefile))
 	{
-		sscanf(buffer_request, "%I64u %d %d %d %d", &time, &device, &lsn, &size, &ope);
+		sscanf(buffer_request, "%llu %d %d %d %d", &time, &device, &lsn, &size, &ope);
 		fl++;
 		trace_assert(time, device, lsn, size, ope);                       
 

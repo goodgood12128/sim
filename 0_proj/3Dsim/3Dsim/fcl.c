@@ -129,6 +129,10 @@ Status services_2_r_data_trans(struct ssd_info * ssd, unsigned int channel)
 	return SUCCESS;
 }
 
+/*
+ 读 当前chip read busy，接下来chip read busy？？？
+ 在die级别 按照OSR+MPR、OSR、MPR、hulf-read、normal优先级读
+*/
 Status services_2_r_read(struct ssd_info * ssd)
 {
 	unsigned int i,j,subs_count = 0,aim_die;
@@ -738,8 +742,9 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request ** subs, unsigned i
 	}
 
 	/***************************************************************************************************
+	 * command: NORAML, MUTLI_PLANE, HALF_PAGE, ONE_SHOT_READ, ONE_SHOT_READ_MUTLI_PLANE
 	*When dealing with ordinary commands, the target state of the read request is divided into the following
-	*cases: SR_R_READ, SR_R_C_A_TRANSFER, SR_R_DATA_TRANSFER
+	*cases: SR_R_READ(介质读), SR_R_C_A_TRANSFER（传输命令）, SR_R_DATA_TRANSFER（传输数据）
 	*
 	*The target status of the write request is only SR_W_TRANSFER
 	****************************************************************************************************/
@@ -1062,6 +1067,14 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request ** subs, unsigned i
 		return ERROR;
 	}
 
+	// if(command == NORMAL){
+	// 	printf("go step %16lld %6u %2u %16lld %16lld %16lld\n", subs[0]->begin_time, subs[0]->size, subs[0]->operation, subs[0]->begin_time, subs[0]->complete_time, subs[0]->complete_time - subs[0]->begin_time);
+	// }else{
+	// 	for (i = 0; i < subs_count; i++){
+	// 		printf("go step sub %16lld %6u %2u %16lld %16lld %16lld\n", subs[i]->begin_time, subs[i]->size, subs[i]->operation, subs[i]->begin_time, subs[i]->complete_time, subs[i]->complete_time - subs[i]->begin_time);
+	// 	}
+	// }
+
 	return SUCCESS;
 }
 
@@ -1251,7 +1264,7 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 	//�������¶�����ȣ���trace�ļ���ȡ����
 	if (update_count > ssd->parameter->update_reqeust_max)
 	{
-		printf("update sub request is full!\n");
+		printf("update sub request is full!%d %d\n", update_count ,ssd->parameter->update_reqeust_max);
 		ssd->buffer_full_flag = 1;  //blcok the buffer
 	}
 	else

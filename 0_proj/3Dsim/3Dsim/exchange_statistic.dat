@@ -2,7 +2,7 @@ parameter file: page.parameters
 trace file: exchange.ascii
 -----------------------parameter file----------------------
 #parameter file
-dram capacity = 8388608;     #the unit is B
+dram capacity = 134217728;     #the unit is B
 chip number[0] = 2;
 chip number[1] = 2;
 chip number[2] = 0;
@@ -26,8 +26,8 @@ channel number = 2;   		#the number of channel
 chip number = 4;
 die number = 1;      
 plane number = 2;
-block number = 2048;
-page number = 64;
+block number = 1888;
+page number = 576;
 subpage page = 4; 				#can not beyond 32
 page capacity = 16384;			#16kb
 subpage capacity = 4096;			
@@ -37,6 +37,10 @@ t_BERS = 10000000;
 t_PROGO = 1100000;            #one shot program time
 t_ERSL = 500000;             #the trans time of suspend/resume operation
 t_R = 90000;
+t_com = 75000;
+t_decomp = 750000;
+t_Com_ratio = 0.65;
+t_Com_dev = 0.1;
 t_WC = 5;
 t_RC = 5;
 t_CLS = 12;
@@ -67,79 +71,98 @@ t_IR = 0;
 t_RHW = 100;
 t_WHR = 60;
 t_RST = 5000;
-erase limit=100000;              #¼ÇÂ¼block×î´ó´ÎÊı²ÁĞ´´ÎÊı
-overprovide=0.20;				 #op¿Õ¼ä´óĞ¡
-requset queue depth=8; 			 #ÇëÇó¶ÓÁĞÉî¶È
-scheduling algorithm=1;          #¼ÇÂ¼Ê¹ÓÃÄÄÖÖµ÷¶ÈËã·¨£¬1:FCFS
-buffer management=0;             #»º´æ²ßÂÔ£º0£ºsub_pageÆ´´Õ
-address mapping=1;               #Ó³Éä±í²ßÂÔ£º1£ºpage£»2£º4kb_map(Ä¿Ç°Ö»Ö§³Öpage-level)
-wear leveling=1;                 #WLËã·¨
-gc=1;                            #gc²ßÂÔ£º1£ºsuperblock
-gc hard threshold=0.10;          #gcÓ²ãĞÖµ´óĞ¡£¬µ±planeÄÚÎŞĞ§Ò³¸öÊı³¬¹ı´ËãĞÖµÊ±£¬´¥·¢Ç¿ÖÆgc²Ù×÷£¬Á¢¿ÌÖ´ĞĞgc
-gc soft threshold=0.20;          #gcÈíãĞÖµ´óĞ¡£¬µ±planeÄÚÎŞĞ§Ò³¸öÊı³¬¹ı´ËãĞÖµÊ±£¬´¥·¢gcÇëÇó£¬ÊÇ·ñÖ´ĞĞĞèÅĞ¶Ïµ±Ç°IOÃ¦ÏĞ
-allocation=0;                    #·ÖÅä·½Ê½£¬0£º¶¯Ì¬·ÖÅä£¬1£º¾²Ì¬·ÖÅä£¬2£º»ùÓÚ¸ºÔØ¸ĞÖª·ÖÅä
-static_allocation=2;			 #tlc mode¾²Ì¬·ÖÅä·½Ê½ÀàĞÍ£¬0£ºplane>superpage>channel>chip>die, 1:superpage>plane>channel>chip>die, 2:channel>chip>plane>superpage>die, 3:channel>chip>superpage>plane>die
-dynamic_allocation=2;	 		 #slc mode¶¯Ì¬·ÖÅä·½Ê½ÓÅÏÈ¼¶£¬0£ºchannel>chip>die>plane,1£ºplane>channel>chip>die,2:stripe_poll,3:stripe_distance,4:stripe_poll_dis
-advanced command=13;             #¸ß¼¶ÃüÁîÖ§³Ö£¬ÓÃ¶ş½øÖÆ±íÊ¾£¬ÎŞ(00000)¡¢mutli plane(00001), half-page-read(00010), one shot program(00100),one shot read(01000),erase suspend/resume(10000)
-greed MPW command=1;             #multi-planeÌ°ĞÄËã·¨£¬0£º·ÇÌ°ĞÄ£¬1£ºÌ°ĞÄ
-aged=0;                          #¾É»¯´¦Àí£¬0£ºnon-aged£¬1£ºaged
-aged ratio=0.5;                	 #¾É»¯ÂÊ
-warm flash=1;					 #ÊÇ·ñÔ¤´¦Àíflash, 0:warmflash, 1:non-warmflash	
-flash mode=1;					 #flashÖ§³ÖÄ£Ê½£¬0£ºslc,1£ºtlc
+erase limit=100000;              #è®°å½•blockæœ€å¤§æ¬¡æ•°æ“¦å†™æ¬¡æ•°
+overprovide=0.20;				 #opç©ºé—´å¤§å°
+requset queue depth=8; 			 #è¯·æ±‚é˜Ÿåˆ—æ·±åº¦
+scheduling algorithm=1;          #è®°å½•ä½¿ç”¨å“ªç§è°ƒåº¦ç®—æ³•ï¼Œ1:FCFS
+buffer management=0;             #ç¼“å­˜ç­–ç•¥ï¼š0ï¼šsub_pageæ‹¼å‡‘
+address mapping=1;               #æ˜ å°„è¡¨ç­–ç•¥ï¼š1ï¼špageï¼›2ï¼š4kb_map(ç›®å‰åªæ”¯æŒpage-level)
+wear leveling=1;                 #WLç®—æ³•
+gc=1;                            #gcç­–ç•¥ï¼š1ï¼šsuperblock
+gc hard threshold=0.10;          #gcç¡¬é˜ˆå€¼å¤§å°ï¼Œå½“planeå†…æ— æ•ˆé¡µä¸ªæ•°è¶…è¿‡æ­¤é˜ˆå€¼æ—¶ï¼Œè§¦å‘å¼ºåˆ¶gcæ“ä½œï¼Œç«‹åˆ»æ‰§è¡Œgc
+gc soft threshold=0.20;          #gcè½¯é˜ˆå€¼å¤§å°ï¼Œå½“planeå†…æ— æ•ˆé¡µä¸ªæ•°è¶…è¿‡æ­¤é˜ˆå€¼æ—¶ï¼Œè§¦å‘gcè¯·æ±‚ï¼Œæ˜¯å¦æ‰§è¡Œéœ€åˆ¤æ–­å½“å‰IOå¿™é—²
+allocation=2;                    #åˆ†é…æ–¹å¼ï¼Œ0ï¼šåŠ¨æ€åˆ†é…ï¼Œ1ï¼šé™æ€åˆ†é…ï¼Œ2ï¼šåŸºäºè´Ÿè½½æ„ŸçŸ¥åˆ†é…
+static_allocation=2;			 #tlc modeé™æ€åˆ†é…æ–¹å¼ç±»å‹ï¼Œ0ï¼šplane>superpage>channel>chip>die, 1:superpage>plane>channel>chip>die, 2:channel>chip>plane>superpage>die, 3:channel>chip>superpage>plane>die
+dynamic_allocation=2;	 		 #slc modeåŠ¨æ€åˆ†é…æ–¹å¼ä¼˜å…ˆçº§ï¼Œ0ï¼šchannel>chip>die>plane,1ï¼šplane>channel>chip>die,2:stripe_poll,3:stripe_distance,4:stripe_poll_dis
+advanced command=13;             #é«˜çº§å‘½ä»¤æ”¯æŒï¼Œç”¨äºŒè¿›åˆ¶è¡¨ç¤ºï¼Œæ— (00000)ã€mutli plane(00001), half-page-read(00010), one shot program(00100),one shot read(01000),erase suspend/resume(10000)
+greed MPW command=1;             #multi-planeè´ªå¿ƒç®—æ³•ï¼Œ0ï¼šéè´ªå¿ƒï¼Œ1ï¼šè´ªå¿ƒ
+aged=0;                          #æ—§åŒ–å¤„ç†ï¼Œ0ï¼šnon-agedï¼Œ1ï¼šaged
+aged ratio=0.5;                	 #æ—§åŒ–ç‡
+warm flash=1;					 #æ˜¯å¦é¢„å¤„ç†flash, 0:warmflash, 1:non-warmflash	
+flash mode=1;					 #flashæ”¯æŒæ¨¡å¼ï¼Œ0ï¼šslc,1ï¼štlc
+
 -----------------------simulation output----------------------
-the 0 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,9420 read operations,41760 write operations,32910 pre_process write operations
-the 0 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,9514 read operations,41760 write operations,32910 pre_process write operations
-the 0 channel, 1 chip, 0 die, 0 plane has :   0 erase operations,9394 read operations,41778 write operations,32910 pre_process write operations
-the 0 channel, 1 chip, 0 die, 1 plane has :   0 erase operations,9575 read operations,41778 write operations,32910 pre_process write operations
-the 1 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,9562 read operations,41748 write operations,32910 pre_process write operations
-the 1 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,9387 read operations,41749 write operations,32909 pre_process write operations
-the 1 channel, 1 chip, 0 die, 0 plane has :   0 erase operations,9539 read operations,41730 write operations,32909 pre_process write operations
-the 1 channel, 1 chip, 0 die, 1 plane has :   0 erase operations,9501 read operations,41730 write operations,32909 pre_process write operations
+chip:0,die:0,plane:0 have free page: 1052602
+chip:0,die:0,plane:1 have free page: 1052602
+chip:1,die:0,plane:0 have free page: 1052602
+chip:1,die:0,plane:1 have free page: 1052602
+chip:0,die:0,plane:0 have free page: 1052602
+chip:0,die:0,plane:1 have free page: 1052602
+chip:1,die:0,plane:0 have free page: 1052602
+chip:1,die:0,plane:1 have free page: 1052602
+									OUTPUT
+****************** TRACE INFO ******************
+the 0 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,50714 read operations,48165 write operations,76535 pre_process write operations
+the 0 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,50510 read operations,48166 write operations,76534 pre_process write operations
+the 0 channel, 1 chip, 0 die, 0 plane has :   0 erase operations,49396 read operations,48267 write operations,75337 pre_process write operations
+the 0 channel, 1 chip, 0 die, 1 plane has :   0 erase operations,49138 read operations,48267 write operations,75337 pre_process write operations
+the 1 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,51285 read operations,48185 write operations,76885 pre_process write operations
+the 1 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,50750 read operations,48185 write operations,76885 pre_process write operations
+the 1 channel, 1 chip, 0 die, 0 plane has :   0 erase operations,49326 read operations,48409 write operations,74597 pre_process write operations
+the 1 channel, 1 chip, 0 die, 1 plane has :   0 erase operations,48899 read operations,48410 write operations,74596 pre_process write operations
 
 
 ---------------------------statistic data---------------------------
 min lsn:            47
 max lsn:      33521527
-read count:         75892
-the read operation leaded by un-covered update count:         75892
+read count:        400018
+the read operation leaded by un-covered update count:         64161
 the read operation leaded by gc read count:             0
 
-program count:        334032
-the write operation leaded by pre_process write count:        263277
-the write operation leaded by un-covered update count:         75892
+program count:        386052
+the write operation leaded by pre_process write count:             0
+the write operation leaded by un-covered update count:         64161
 the write operation leaded by gc read count:             0
 
 erase count:             0
 direct erase count:             0
 gc count:             0
+multi-plane program count:        193017
+multi-plane read count:         55442
 
-multi-plane program count:        167004
-multi-plane read count:          5487
-
-mutli plane one shot program count :         55668
+mutli plane one shot program count :         64339
 one shot program count :             0
 
 half page read count :             0
-one shot read count :           230
+one shot read count :           136
 mutli plane one shot read count :             0
 
 erase suspend count :             0
 erase resume  count :             0
 suspend read  count :             0
 
-update sub request count :             6
-write flash count:        597309
+update sub request count :            14
+write flash count:        386052
 
-read request count:             0
-write request count:        192035
+read request count:        192035
+write request count:        407964
 
-read request average size:      0.000000
-write request average size:     30.284887
+read request average size:     30.284883
+write request average size:     28.148485
 
-write request average response time: %16I64u
+read request average response time:           260724
+write request average response time:           457803
 
-buffer read hits:             0
-buffer read miss:             0
-buffer write hits:        372990
-buffer write miss:        334034
+buffer read hits:         36091
+buffer read miss:        336746
+buffer write hits:        769801
+buffer write miss:        386053
+update sub request count :            14
+half page read count :             0
+mutli plane one shot program count :         64339
+one shot read count :           136
+mutli plane one shot read count :             0
+erase suspend count :             0
+erase resume  count :             0
+suspend read  count :             0
 

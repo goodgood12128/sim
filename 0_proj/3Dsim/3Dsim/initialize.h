@@ -181,6 +181,9 @@ struct ac_time_characteristics{
 	int tWH;       //WE high hold time
 	int tADL;      //address to data loading time
 	int tR;        //data transfer from cell to register
+	int tRLSB;
+	int tRCSB;
+	int tRMSB;
 	int tAR;       //ALE to RE delay
 	int tCLR;      //CLE to RE delay
 	int tRR;       //ready to RE low
@@ -199,7 +202,8 @@ struct ac_time_characteristics{
 	int tRHW;      //RE high to WE low
 	int tWHR;      //WE high to RE low
 	int tRST;      //device resetting time
-}ac_timing;
+// }ac_timing;
+};
 
 
 struct ssd_info{ 
@@ -349,6 +353,7 @@ struct chip_info{
 	unsigned long chip_erase_count;
 
     struct ac_time_characteristics ac_timing;  
+	// struct ac_time_characteristics ac_time;
 	struct die_info *die_head;
 };
 
@@ -476,6 +481,7 @@ struct request{
 	unsigned int size;                 //The size of the request, the number of sectors
 	unsigned int operation;            //The type of request, 1 for the read, 0 for the write
 	unsigned int cmplt_flag;		   //Whether the request is executed, 0 means no execution, 1 means it has been executed
+	double compressed_size;
 
 	unsigned int* need_distr_flag;
 	unsigned int complete_lsn_count;   //record the count of lsn served by buffer
@@ -483,7 +489,7 @@ struct request{
 	int distri_flag;		           // indicate whether this request has been distributed already
 
 	int64_t begin_time;
-	int64_t response_time;
+	int64_t response_time; // 在buffer中命中了
 	int64_t request_read_num;
 
 	struct sub_request *subs;          //Record all sub-requests belonging to the request
@@ -540,6 +546,8 @@ struct parameter_value{
 	unsigned int page_capacity;
 	unsigned int subpage_capacity;
 
+	// float comp_ratio;
+	// float comp_std_dev;
 
 	unsigned int ers_limit;         //Record the number of erasable blocks per block
 	int address_mapping;            //Record the type of mapping,1��page��2��block��3��fast

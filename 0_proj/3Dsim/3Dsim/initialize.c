@@ -430,7 +430,8 @@ struct chip_info * initialize_chip(struct chip_info * p_chip,struct parameter_va
 	p_chip->subpage_num_page = parameter->subpage_page;
 	p_chip->ers_limit = parameter->ers_limit;
 	p_chip->token=0;
-	p_chip->ac_timing = parameter->time_characteristics;		
+	p_chip->ac_timing = parameter->time_characteristics;
+	// p_chip->ac_time = parameter->time_characteristics;		
 	p_chip->chip_read_count = 0;
 	p_chip->chip_program_count = 0;
 	p_chip->chip_erase_count = 0;
@@ -515,7 +516,13 @@ struct parameter_value *load_parameters(char parameter_file[30])
 		buf[pre_eql] = 0;
 		if((res_eql=strcmp(buf,"chip number")) ==0){			
 			sscanf(buf + next_eql,"%d",&p->chip_num);           //The number of chips
-		}else if((res_eql=strcmp(buf,"dram capacity")) ==0){
+		}
+		// else if((res_eql=strcmp(buf,"t_Com_ratio")) ==0){
+		// 	sscanf(buf + next_eql,"%d",&p->comp_ratio);      //The size of the cache, the unit is byte
+		// }else if((res_eql=strcmp(buf,"t_Com_std")) ==0){
+		// 	sscanf(buf + next_eql,"%d",&p->comp_std_dev);      //The size of the cache, the unit is byte
+		// }
+		else if((res_eql=strcmp(buf,"dram capacity")) ==0){
 			sscanf(buf + next_eql,"%d",&p->dram_capacity);      //The size of the cache, the unit is byte
 		}else if((res_eql=strcmp(buf,"channel number")) ==0){
 			sscanf(buf + next_eql,"%d",&p->channel_number);		//The number of channels

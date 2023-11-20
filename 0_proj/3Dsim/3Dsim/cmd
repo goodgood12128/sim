@@ -1,0 +1,10 @@
+input_directory="/home/zmr/sim/4_data/16GB/public/"
+output_directory="/home/zmr/sim/4_data/out/"
+
+for file in "$input_directory"*; do
+    filename="$file"
+    output_file="$output_directory$(basename "$file")_statistic.dat"
+
+    ./My3Dsim -t "$filename" -o "$output_file"
+done
+
