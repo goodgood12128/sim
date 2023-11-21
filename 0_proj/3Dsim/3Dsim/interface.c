@@ -47,29 +47,27 @@ Zuo Lu				2018/02/07        2.0			The release version 									lzuo@hust.edu.cn
 
 extern int secno_num_per_page, secno_num_sub_page;
 
-// double generate_normal_distribution(double mean, double std_dev) {
-//     double u1, u2;
-//     double z;
+double generate_normal_distribution(double mean, double std_dev) {
+    double u1, u2;
+    double z;
 
-//     // 生成两个均匀分布的随机数 u1, u2 在 (0, 1) 之间
-//     u1 = rand() / (RAND_MAX + 1.0);
-//     u2 = rand() / (RAND_MAX + 1.0);
+    // 生成两个均匀分布的随机数 u1, u2 在 (0, 1) 之间
+    u1 = rand() / (RAND_MAX + 1.0);
+    u2 = rand() / (RAND_MAX + 1.0);
 
-//     // 利用 Box-Muller 转换生成正态分布的随机数
-//     z = sqrt(-2.0 * log(u1)) * cos(2.0 * M_PI * u2);
+    // 利用 Box-Muller 转换生成正态分布的随机数
+    z = sqrt(-2.0 * log(u1)) * cos(2.0 * M_PI * u2);
 
-//     // 根据均值和标准差进行缩放和平移
-//     double value = mean + std_dev * z;
+    // 根据均值和标准差进行缩放和平移
+    double value = mean + std_dev * z;
 
-//     // 将生成的值映射到 0 到 1 的范围内
-//     if (value < 0.0) {
-//         return 0.0;
-//     } else if (value > 1.0) {
-//         return 1.0;
-//     } else {
-//         return value;
-//     }
-// }
+    // 将生成的值映射到 0 到 1 的范围内
+    if ((value <= 0.0) || (value > 1.0)) 
+        return -1.0;
+	else {
+        return value;
+    }
+}
 
 /********    get_request    ******************************************************
 *	1.get requests that arrived already
@@ -227,15 +225,21 @@ int get_requests(struct ssd_info *ssd)
 	alloc_assert(request1, "request");
 	memset(request1, 0, sizeof(struct request));
 
-	// request1->time = time_t;
-	// request1->lsn = lsn;
-	// request1->size = size/3;
-	// request1->compressed_size = size * generate_normal_distribution(ssd->parameter->comp_ratio, ssd->parameter->comp_std_dev);
-
 	request1->time = time_t;
 	request1->lsn = lsn;
-	request1->size = size;
-
+	double compressed_ratio = generate_normal_distribution(ssd->parameter->comp_ratio, ssd->parameter->comp_std_dev);
+	if(compressed_ratio == -1.0){
+		request1->compressed_size = size;
+		request1->size = size;
+	}else{
+		request1->compressed_size = size * compressed_ratio;
+	}
+	request1->size = request1->compressed_size/3;
+	if(fmod(request1->compressed_size,3) != 0){
+		request1->size += 1;
+	}
+	// printf("%f %d %f %f %f\n",request1->compressed_size, size, compressed_ratio, ssd->parameter->comp_ratio, ssd->parameter->comp_std_dev);
+	// printf("%d\n",request1->size);
 	/*
 	if (ssd->pre_process_cmplt == 0 && ope == READ)
 		request1->operation = WRITE;

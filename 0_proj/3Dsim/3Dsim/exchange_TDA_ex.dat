@@ -40,7 +40,7 @@ t_R = 90000;
 t_com = 75000;
 t_decomp = 750000;
 t_Com_ratio = 0.65;
-t_Com_dev = 0.1;
+t_Com_std = 0.1;
 t_WC = 5;
 t_RC = 5;
 t_CLS = 12;
@@ -92,60 +92,60 @@ warm flash=1;					 #是否预处理flash, 0:warmflash, 1:non-warmflash
 flash mode=1;					 #flash支持模式，0：slc,1：tlc
 
 -----------------------simulation output----------------------
-the 0 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,50714 read operations,48165 write operations,76535 pre_process write operations
-the 0 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,50510 read operations,48166 write operations,76534 pre_process write operations
-the 0 channel, 1 chip, 0 die, 0 plane has :   0 erase operations,49396 read operations,48267 write operations,75337 pre_process write operations
-the 0 channel, 1 chip, 0 die, 1 plane has :   0 erase operations,49138 read operations,48267 write operations,75337 pre_process write operations
-the 1 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,51285 read operations,48185 write operations,76885 pre_process write operations
-the 1 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,50750 read operations,48185 write operations,76885 pre_process write operations
-the 1 channel, 1 chip, 0 die, 0 plane has :   0 erase operations,49326 read operations,48409 write operations,74597 pre_process write operations
-the 1 channel, 1 chip, 0 die, 1 plane has :   0 erase operations,48899 read operations,48410 write operations,74596 pre_process write operations
+the 0 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,39871 read operations,25347 write operations,63948 pre_process write operations
+the 0 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,39282 read operations,25347 write operations,63948 pre_process write operations
+the 0 channel, 1 chip, 0 die, 0 plane has :   0 erase operations,39923 read operations,25746 write operations,64169 pre_process write operations
+the 0 channel, 1 chip, 0 die, 1 plane has :   0 erase operations,39606 read operations,25747 write operations,64168 pre_process write operations
+the 1 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,41037 read operations,25419 write operations,65018 pre_process write operations
+the 1 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,40359 read operations,25419 write operations,65018 pre_process write operations
+the 1 channel, 1 chip, 0 die, 0 plane has :   0 erase operations,38456 read operations,25590 write operations,63005 pre_process write operations
+the 1 channel, 1 chip, 0 die, 1 plane has :   0 erase operations,38340 read operations,25590 write operations,63005 pre_process write operations
 
 
 ---------------------------statistic data---------------------------
 min lsn:            47
 max lsn:      33521527
-read count:        400018
-the read operation leaded by un-covered update count:         64161
+read count:        316874
+the read operation leaded by un-covered update count:         68917
 the read operation leaded by gc read count:             0
 
-program count:        386052
+program count:        204204
 the write operation leaded by pre_process write count:             0
-the write operation leaded by un-covered update count:         64161
+the write operation leaded by un-covered update count:         68917
 the write operation leaded by gc read count:             0
 
 erase count:             0
 direct erase count:             0
 gc count:             0
 
-multi-plane program count:        193017
-multi-plane read count:         55442
+multi-plane program count:        102102
+multi-plane read count:         21559
 
-mutli plane one shot program count :         64339
+mutli plane one shot program count :         34034
 one shot program count :             0
 
 half page read count :             0
-one shot read count :           136
+one shot read count :           168
 mutli plane one shot read count :             0
 
 erase suspend count :             0
 erase resume  count :             0
 suspend read  count :             0
 
-update sub request count :            14
-write flash count:        386052
+update sub request count :            22
+write flash count:        204204
 
 read request count:        192035
 write request count:        407964
 
-read request average size:     30.284883
-write request average size:     28.148485
+read request average size:      7.067412
+write request average size:      6.643426
 
-read request average response time:           260724
-write request average response time:           457803
+read request average response time:           160756
+write request average response time:           186325
 
-buffer read hits:         36091
-buffer read miss:        336746
-buffer write hits:        769801
-buffer write miss:        386053
+buffer read hits:          7728
+buffer read miss:        248137
+buffer write hits:        539853
+buffer write miss:        204209
 

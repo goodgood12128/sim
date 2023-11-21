@@ -516,13 +516,11 @@ struct parameter_value *load_parameters(char parameter_file[30])
 		buf[pre_eql] = 0;
 		if((res_eql=strcmp(buf,"chip number")) ==0){			
 			sscanf(buf + next_eql,"%d",&p->chip_num);           //The number of chips
-		}
-		// else if((res_eql=strcmp(buf,"t_Com_ratio")) ==0){
-		// 	sscanf(buf + next_eql,"%d",&p->comp_ratio);      //The size of the cache, the unit is byte
-		// }else if((res_eql=strcmp(buf,"t_Com_std")) ==0){
-		// 	sscanf(buf + next_eql,"%d",&p->comp_std_dev);      //The size of the cache, the unit is byte
-		// }
-		else if((res_eql=strcmp(buf,"dram capacity")) ==0){
+		}else if((res_eql=strcmp(buf,"t_Com_ratio")) ==0){
+			sscanf(buf + next_eql,"%f",&p->comp_ratio);      //The size of the cache, the unit is byte
+		}else if((res_eql=strcmp(buf,"t_Com_std")) ==0){
+			sscanf(buf + next_eql,"%f",&p->comp_std_dev);      //The size of the cache, the unit is byte
+		}else if((res_eql=strcmp(buf,"dram capacity")) ==0){
 			sscanf(buf + next_eql,"%d",&p->dram_capacity);      //The size of the cache, the unit is byte
 		}else if((res_eql=strcmp(buf,"channel number")) ==0){
 			sscanf(buf + next_eql,"%d",&p->channel_number);		//The number of channels

@@ -546,8 +546,8 @@ struct parameter_value{
 	unsigned int page_capacity;
 	unsigned int subpage_capacity;
 
-	// float comp_ratio;
-	// float comp_std_dev;
+	float comp_ratio;
+	float comp_std_dev;
 
 	unsigned int ers_limit;         //Record the number of erasable blocks per block
 	int address_mapping;            //Record the type of mapping,1��page��2��block��3��fast

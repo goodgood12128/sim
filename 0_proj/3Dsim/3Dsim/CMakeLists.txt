@@ -18,3 +18,6 @@ target_include_directories(My3Dsim PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
+# Link the necessary libraries (math library)
+target_link_libraries(My3Dsim PRIVATE m)
+
