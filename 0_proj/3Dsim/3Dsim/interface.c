@@ -228,17 +228,19 @@ int get_requests(struct ssd_info *ssd)
 	request1->time = time_t;
 	request1->lsn = lsn;
 	double compressed_ratio = generate_normal_distribution(ssd->parameter->comp_ratio, ssd->parameter->comp_std_dev);
+	
+	request1->size = size;
+	unsigned int compressed_size;
 	if(compressed_ratio == -1.0){
-		request1->compressed_size = size;
-		request1->size = size;
+		compressed_size = size;
 	}else{
-		request1->compressed_size = size * compressed_ratio;
+		compressed_size = size * compressed_ratio +1;
 	}
-	request1->size = request1->compressed_size/3;
-	if(fmod(request1->compressed_size,3) != 0){
-		request1->size += 1;
+	request1->compressed_size = compressed_size / 3;
+	if(compressed_size %3 != 0){
+		request1->compressed_size += 1;
 	}
-	// printf("%f %d %f %f %f\n",request1->compressed_size, size, compressed_ratio, ssd->parameter->comp_ratio, ssd->parameter->comp_std_dev);
+	// printf("%d %d %f %f %f\n",request1->compressed_size, size, compressed_ratio, ssd->parameter->comp_ratio, ssd->parameter->comp_std_dev);
 	// printf("%d\n",request1->size);
 	/*
 	if (ssd->pre_process_cmplt == 0 && ope == READ)

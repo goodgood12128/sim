@@ -117,7 +117,7 @@ struct ssd_info *pre_process_page(struct ssd_info *ssd)
 			}
 		}
 		
-		//����Ԥ���������������еĶ����󣬽�������ת��Ϊд����ͬʱ��ӳ����м��?
+		//����Ԥ���������������еĶ����󣬽�������ת��Ϊд����ͬʱ��ӳ����м��?
 		if (ope == 1)
 		{
 			//����4kb����
@@ -131,7 +131,7 @@ struct ssd_info *pre_process_page(struct ssd_info *ssd)
 
 			while (lpn <= last_lpn)
 			{
-				mask = ~(0xffffffff << (ssd->parameter->subpage_page));   //�����ʾ������ҳ������?
+				mask = ~(0xffffffff << (ssd->parameter->subpage_page));   //�����ʾ������ҳ������?
 				state = mask;
 
 				if (lpn == first_lpn)
@@ -152,7 +152,7 @@ struct ssd_info *pre_process_page(struct ssd_info *ssd)
 				if (lpn > ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->plane_die*ssd->parameter->die_chip*ssd->parameter->chip_num)
 					printf("error\n");
 
-				//state��ʾ�����״�?λ
+				//state��ʾ�����״�?λ
 				if (ssd->dram->map->map_entry[lpn].state == 0)
 				{
 					//ppn = get_ppn_for_pre_process(ssd, lsn);
@@ -187,7 +187,7 @@ struct ssd_info *pre_process_page(struct ssd_info *ssd)
 
 	if (ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)
 	{
-		//����дͳ�ƵĴ���������?�󣬿�ʼ���������Ƕ�д
+		//����дͳ�ƵĴ���������?�󣬿�ʼ���������Ƕ�д
 		for (i = 0; i < page_num; i++)
 		{
 
@@ -764,15 +764,15 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 	struct sub_request * sub = NULL;
 	struct sub_request ** mutli_subs = NULL;
 
-	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)  //��̬�����Ŀ��die plane�ɶ�̬����������
+	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)  //动态分配的目标die plane由动态令牌来决定
 	{
 		aim_die = ssd->channel_head[channel].chip_head[chip].token;
 		aim_plane = ssd->channel_head[channel].chip_head[chip].die_head[aim_die].token;
 	}
 	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
 	{
-		aim_die = subs[0]->location->die;            //��̬����ֻ���ҵ���Ӧ��die
-		//��֤subs����Ч��
+		aim_die = subs[0]->location->die;            //静态分配只能找到对应的die
+		//验证subs的有效性
 		for (i = 0; i < subs_count; i++)
 		{
 			if (subs[i]->location->die != aim_die)
@@ -783,7 +783,7 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 		}
 	}
 
-	//�����one shot mutli plane������������Ҫ��superpage����mutli plane����
+	//如果是one shot mutli plane的情况，这里就要分superpage还是mutli plane优先
 	if (command == ONE_SHOT_MUTLI_PLANE)
 	{
 		mutli_subs = (struct sub_request **)malloc(ssd->parameter->plane_die * sizeof(struct sub_request *));
@@ -801,7 +801,7 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 					}
 					mutli_subs[j] = subs[j + k];
 				}
-				//����mutli plane�Ĳ���
+				//进行mutli plane的操作
 				find_level_page(ssd, channel, chip, aim_die, mutli_subs, ssd->parameter->plane_die);
 				k = k + ssd->parameter->plane_die;
 			}
@@ -821,7 +821,7 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 					mutli_subs[j] = subs[i + k];
 					k = k + PAGE_INDEX;
 				}
-				//����mutli plane�Ĳ���
+				//进行mutli plane的操作
 				find_level_page(ssd, channel, chip, aim_die, mutli_subs, ssd->parameter->plane_die);
 			}
 		}
@@ -1123,14 +1123,14 @@ int gc_direct_erase(struct ssd_info *ssd, unsigned int channel, unsigned int chi
 		direct_erase_node = NULL;
 	}
 
-	//���Ƚ���channel����ת�����Ǵ��������ʱ��?
+	//���Ƚ���channel����ת�����Ǵ��������ʱ��?
 	ssd->channel_head[channel].current_state = CHANNEL_TRANSFER;
 	ssd->channel_head[channel].current_time = ssd->current_time;
 	ssd->channel_head[channel].next_state = CHANNEL_IDLE;
-	ssd->channel_head[channel].next_state_predict_time = ssd->current_time + 7 * ssd->parameter->plane_die * ssd->parameter->time_characteristics.tWC;   //14��ʾ���Ǵ��������ʱ��?Ϊmutli plane
+	ssd->channel_head[channel].next_state_predict_time = ssd->current_time + 7 * ssd->parameter->plane_die * ssd->parameter->time_characteristics.tWC;   //14��ʾ���Ǵ��������ʱ��?Ϊmutli plane
 
 
-	//�ж��Ƿ���suspend����д��������ܲ�����Ҫ��������������ȴ��ָ�?
+	//�ж��Ƿ���suspend����д��������ܲ�����Ҫ��������������ȴ��ָ�?
 	if ((ssd->parameter->advanced_commands&AD_ERASE_SUSPEND_RESUME) == AD_ERASE_SUSPEND_RESUME)
 	{
 		//1.ʹ����suspend������ȸ���chip�ϵ�suspend����״̬�����ڼ���Ƿ���suspend������
@@ -1318,7 +1318,7 @@ int greedy_gc(struct ssd_info *ssd, unsigned int channel, unsigned int chip, uns
 	page_move_count*(7 * ssd->parameter->time_characteristics.tWC + ssd->parameter->time_characteristics.tR + 7 * ssd->parameter->time_characteristics.tWC + ssd->parameter->time_characteristics.tPROG) +
 	transfer_size*SECTOR*(ssd->parameter->time_characteristics.tWC + ssd->parameter->time_characteristics.tRC);
 
-	//��ЧҳǨ����ɣ���ʼִ�в�������?,��������block
+	//��ЧҳǨ����ɣ���ʼִ�в�������?,��������block
 	if ((ssd->parameter->advanced_commands&AD_ERASE_SUSPEND_RESUME) == AD_ERASE_SUSPEND_RESUME)
 	{
 		//1.ʹ����suspend������ȸ���chip�ϵ�suspend����״̬�����ڼ���Ƿ���suspend������
@@ -1349,7 +1349,7 @@ int greedy_gc(struct ssd_info *ssd, unsigned int channel, unsigned int chip, uns
 	return SUCCESS;
 }
 
-//ִ��suspend���������������д�������ֳ�?
+//ִ��suspend���������������д�������ֳ�?
 struct ssd_info * suspend_erase_operation(struct ssd_info * ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int * erase_block)
 {
 	long long erase_begin_time, erase_end_time;

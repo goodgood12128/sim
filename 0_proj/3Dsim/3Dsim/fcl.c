@@ -1092,7 +1092,7 @@ Status services_2_write(struct ssd_info * ssd, unsigned int channel)
 	*************************************************************************************************************************/
 	if (ssd->subs_w_head != NULL || ssd->channel_head[channel].subs_w_head != NULL)
 	{
-		//�ж�tlcģʽ�£�һ��process���������ϵ�������û��С��3�����󣬲���ִ��one��shot
+		///判断tlc模式下，一次process，请求链上的请求有没有小于3个请求，不能执行one　shot
 		if (ssd->channel_head[channel].subs_w_head != NULL)
 		{
 			sub = ssd->channel_head[channel].subs_w_head;
@@ -1108,7 +1108,7 @@ Status services_2_write(struct ssd_info * ssd, unsigned int channel)
 			}
 		}
 		
-		//����flagȥ�жϵ��ױ���״̬ת��ִ�����ַ�ʽ
+		///根据flag去判断到底本次状态转变执行哪种方式
 		if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)
 		{
 			for (j = 0; j<ssd->channel_head[channel].chip; j++)							  //Traverse all the chips
@@ -1177,6 +1177,7 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 	unsigned int i = 0, j = 0, k = 0;
 	unsigned int aim_die;
 
+	//the number of the plane in a chip buffer pages
 	max_sub_num = (ssd->parameter->die_chip)*(ssd->parameter->plane_die)*PAGE_INDEX;
 	subs = (struct sub_request **)malloc(max_sub_num*sizeof(struct sub_request *));
 	alloc_assert(subs, "sub_request");
@@ -1185,7 +1186,7 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 		subs[i] = NULL;  
 	
 
-	//�����Ƕ�̬���仹�Ǿ�̬���䣬ѡ��ͬ�Ĺ��ص�
+	//根据是动态分配还是静态分配，选择不同的挂载点
 	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)
 		sub = ssd->subs_w_head;
 	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
@@ -1194,7 +1195,7 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 		aim_die = sub->location->die;
 	}
 
-	//1.�����������ϵ�ǰ���е�����
+	//1.遍历请求链上当前空闲的请求
 	subs_count = 0;
 	while ((sub != NULL) && (subs_count < max_sub_num))
 	{
@@ -1202,7 +1203,7 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 		{
 			if ((sub->update == NULL) || ((sub->update != NULL) && ((sub->update->current_state == SR_COMPLETE) || ((sub->update->next_state == SR_COMPLETE) && (sub->update->next_state_predict_time <= ssd->current_time)))))    //û����Ҫ��ǰ������ҳ
 			{
-				if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)								//����Ǿ�̬���䣬����Ҫ��֤�ҵ��Ŀ�������������ͬһ��channel,chip,die
+				if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)			//如果是静态分配，还需要保证找到的空闲请求是属于同一个channel,chip,die
 				{
 					if (sub->location->chip == chip && sub->location->die == aim_die)
 					{
@@ -1210,7 +1211,7 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 						subs_count++;
 					}
 				}
-				else if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)						//��̬���䣬����֪���߼�ҳ�ֵ�����һ���̶���ҳ������ǲ�ȷ����
+				else if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)	//动态分配，即不知道逻辑页分到到哪一个固定的页，这个是不确定的
 				{
 					//if (sub->location->chip == chip)
 					//{
@@ -1220,7 +1221,7 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 					subs[subs_count] = sub;
 					subs_count++;
 				}
-				else if (ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)						//�����׽ڵ��location�ж�����ȫ��̬��д�뻹��stripe��д��
+				else if (ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)						//根据首节点的location判断是完全动态的写入还是stripe的写
 				{
 					if (ssd->subs_w_head->location->channel == -1)
 					{
@@ -1247,7 +1248,7 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 		sub = sub->next_node;
 	}
 
-	//2.�Ҳ������е�������򷵻�null,��ʾ��ǰû������ִ��
+	//2.找不到空闲的情况，则返回null,表示当前没有请求执行
 	if (subs_count == 0)
 	{
 		for (i = 0; i < max_sub_num; i++)
@@ -1257,11 +1258,11 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 		return NULL;
 	}
 
-	//3.�����������������������������������еĹ���	
+	//3.根据请求链遍历的情况，处理更新请求队列的管理
 	if (update_count > ssd->update_sub_request)
 		ssd->update_sub_request = update_count;
 
-	//�������¶�����ȣ���trace�ļ���ȡ����
+	//超过更新队列深度，将trace文件读取阻塞
 	if (update_count > ssd->parameter->update_reqeust_max)
 	{
 		printf("update sub request is full!%d %d\n", update_count ,ssd->parameter->update_reqeust_max);
@@ -1270,7 +1271,7 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 	else
 		ssd->buffer_full_flag = 0;
 		
-	//4.���ݲ�ͬģʽ��ѡ���Ӧ�ĸ߼��������
+	//4.根据不同模式，选择对应的高级命令服务
 	if (ssd->parameter->flash_mode == SLC_MODE)
 	{
 		if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE)
@@ -1278,7 +1279,7 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 			aim_subs_count = ssd->parameter->plane_die;
 			service_advance_command(ssd, channel, chip, subs, subs_count, aim_subs_count, MUTLI_PLANE);
 		}
-		else   //����֧�ָ߼������ʱ��ʹ��one page  program
+		else   //当不支持高级命令的时候，使用one page  program
 		{
 			for (i = 1; i<subs_count; i++)
 			{
@@ -1312,7 +1313,7 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 		}
 	}
 
-	//5.������ɣ��ͷ���������ռ䣬������ssd�ṹ�壬��ʾ������ִ��
+	//5.处理完成，释放请求数组空间，并返回ssd结构体，表示请求已执行
 	for (i = 0; i < max_sub_num; i++)
 	{
 		subs[i] = NULL;
@@ -1323,7 +1324,7 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 }
 
 
-//���ݲ�ͬ�ĸ߼�����ȥ��������ĸ���
+//根据不同的高级命令去凑足请求的个数
 Status service_advance_command(struct ssd_info *ssd, unsigned int channel, unsigned int chip, struct sub_request ** subs, unsigned int subs_count, unsigned int aim_subs_count, unsigned int command)
 {
 	unsigned int i = 0;
@@ -1332,7 +1333,7 @@ Status service_advance_command(struct ssd_info *ssd, unsigned int channel, unsig
 
 	max_sub_num = (ssd->parameter->die_chip)*(ssd->parameter->plane_die)*PAGE_INDEX;
 
-	//���������ˣ�ֻʣ���˵����������ʱ�����ʹ����ͨ��one page programȥд��
+	//当最后读完了，只剩下了单个请求，这个时候可以使用普通的one page program去写完
 	if ((ssd->trace_over_flag == 1 && ssd->request_work == NULL) || (ssd->parameter->warm_flash == 1 && ssd->trace_over_flag == 1 && ssd->warm_flash_cmplt == 0))
 	{
 		for (i = 0; i < subs_count;i++)
@@ -1355,7 +1356,7 @@ Status service_advance_command(struct ssd_info *ssd, unsigned int channel, unsig
 		while (subs_count < aim_subs_count)
 		{
 			getout2buffer(ssd, NULL, subs[0]->total_request);
-			//���±�������д��������ȡ����Ӧ������д������
+			//重新遍历整个写请求链，取出对应的两个写子请求
 			for (i = 0; i < max_sub_num; i++)
 			{
 				subs[i] = NULL;
@@ -1405,7 +1406,7 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 	page_place = (unsigned int *)malloc(ssd->parameter->plane_die*sizeof(page_place));
 	old_plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
 
-	//��֤����sub����Ч��
+	//验证请求sub的有效性
 	if (subs_count != ssd->parameter->plane_die)
 	{
 		printf("find level failed\n");
@@ -1431,8 +1432,8 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 		}
 	}
 
-	//�ж����е�page�Ƿ���ȣ������ȣ�ִ��mutli plane���������ȣ�̰����ʹ�ã������е�page������page����
-	if (equal_flag == 1)	//pageƫ�Ƶ�ַһ��
+	//判断所有的page是否相等，如果相等，执行mutli plane，如果不相等，贪婪的使用，将所有的page向最大的page靠近
+	if (equal_flag == 1)	//page偏移地址一致
 	{
 		for (i = 0; i < ssd->parameter->plane_die; i++)
 		{
@@ -1440,11 +1441,11 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 			flash_page_state_modify(ssd, sub[i], channel, chip, die, i, active_block, page_place[i]);
 		}
 	}
-	else				    //pageƫ�Ƶ�ַ��һ��
+	else				    //page偏移地址不一致
 	{
 		if (ssd->parameter->greed_MPW_ad == 1)                                          
 		{			
-			//�鿴page����ҳ����aim_page
+			//查看page最大的页当做aim_page
 			for (i = 0; i < ssd->parameter->plane_die; i++)
 			{
 				if (page_place[i] > aim_page)
@@ -1460,23 +1461,23 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 				}
 			}*/
 
-			//���ȼ���Ƿ������0-63��63-0�Ŀ�ҳ����������
+			//首先检查是否出现了0-63、63-0的跨页不均匀现象
 			if ((page_place[0] == (ssd->parameter->page_block - 1) && page_place[1] == 0) || (page_place[0] == 0 && page_place[1] == (ssd->parameter->page_block - 1)))
 			{
 				for (i = 0; i < ssd->parameter->plane_die; i++)
 				{
 					if (page_place[i] == (ssd->parameter->page_block - 1))
 					{
-						//���Ƚ����63��ҳ����Ч
+						//首先将这个63号页置无效
 						active_block = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].active_block;
 						make_same_level(ssd, channel, chip, die, i, active_block, ssd->parameter->page_block);
 
-						//Ѱ���µ�block,��������Ч��63��ҳ�����Ѱ�ҵ������һ�����п�
+						//寻找新的block,由于置无效了63号页，则会寻找到后面的一个空闲块
 						find_active_block(ssd, channel, chip, die, i);
 						active_block = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].active_block;
 						page_place[i] = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].blk_head[active_block].last_write_page + 1;
 
-						//����aim_pageΪ0
+						//设置aim_page为0
 						aim_page = 0;
 						break;
 					}
@@ -1642,7 +1643,7 @@ struct ssd_info *compute_serve_time(struct ssd_info *ssd, unsigned int channel, 
 	struct sub_request * last_sub = NULL;
 	int prog_time = 0;
 
-	//����д�����У�д��ַ�����д���ݵĴ����Ǵ��еģ�����һ������
+	//由于写操作中，写地址命令和写数据的传输是串行的，共用一个总线
 	for (i = 0; i < subs_count; i++)
 	{
 		subs[i]->current_state = SR_W_TRANSFER;
@@ -1669,7 +1670,7 @@ struct ssd_info *compute_serve_time(struct ssd_info *ssd, unsigned int channel, 
 	ssd->channel_head[channel].next_state = CHANNEL_IDLE;
 	ssd->channel_head[channel].next_state_predict_time = last_sub->complete_time;
 
-	//��ͬ�ĸ߼�������д���ʵ�ʱ�����������������������ʱ���chip��ʱ������
+	//不同的高级命令在写介质的时间上区别，体现在请求的最终时间和chip的时间线上
 	if (command == ONE_SHOT_MUTLI_PLANE)
 	{
 		prog_time = ssd->parameter->time_characteristics.tPROGO;
