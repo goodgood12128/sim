@@ -108,9 +108,8 @@ struct ssd_info *handle_write_buffer(struct ssd_info *ssd, struct request *req)
 
 	while (lpn <= last_lpn)       //lpn值在递增
 	{
-		mask = ~(0xffffffff << (ssd->parameter->subpage_page));   //掩码表示的是子页的掩码        //subpage_page      一页包含4个子页 
+		mask = ~(0xffffffff << (ssd->parameter->subpage_page));   //掩码表示的是子页的掩码 subpage_page 一页包含4个子页 
 		state = mask;   //00001111
-
 		if (lpn == first_lpn)
 		{
 			//offset表示state中0的个数，也就是第一个页中缺失的部分

@@ -9,6 +9,8 @@
 #include <dirent.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <math.h>
+#include <time.h>
 
 // 哈希表节点
 typedef struct HashNode {
@@ -95,25 +97,6 @@ void calculatePercentiles(long long int *intervals, size_t count) {
 
 void processFile(const char *filename);
 
-int main() {
-    DIR *dir;
-    struct dirent *entry;
-
-    dir = opendir("/home/zmr/sim/4_data/16GB/public");
-
-    if (dir == NULL) {
-        perror("Error opening directory");
-        return 1;
-    }
-
-    while ((entry = readdir(dir)) != NULL) {
-        processFile(entry->d_name);
-    }
-
-    closedir(dir);
-
-    return 0;
-}
 
 void processFile(const char *filename) {
     char fullpath[256];  // Assuming maximum path length is 255 characters
@@ -193,3 +176,35 @@ void processFile(const char *filename) {
     // if(writeRequests != 0) printf("%f ", 0.5*writeFirstAvgSize/writeRequests); else printf("%d ", 0);
     // if((writeRequests+updateRequests) != 0) printf("%f\n", 0.5*writeAvgSize/(writeRequests+updateRequests)); else printf("%d\n", 0);
     }
+
+
+double generate_normal_random(double mean, double variance) {
+    // 使用Box-Muller变换生成标准正态分布的随机数
+    double u1, u2, z0;
+    do {
+        u1 = ((double)rand() / RAND_MAX) * 2 - 1;
+        u2 = ((double)rand() / RAND_MAX) * 2 - 1;
+        z0 = u1 * u1 + u2 * u2;
+    } while (z0 > 1 || z0 == 0);
+
+    double z1 = sqrt(-2.0 * log(z0) / z0);
+    
+    // Apply range restrictions
+    double random_number = mean + sqrt(variance) * u1 * z1;
+    return (random_number < 0) ? 0 : ((random_number > 1) ? 1 : random_number);
+}
+
+int main() {
+    double num = 3.34;
+    double int_part, frac_part;
+
+    // 使用 modf 函数将浮点数拆分为整数部分和小数部分
+    frac_part = modf(num/3, &int_part);
+
+    // 输出整数部分和小数部分
+    printf("Original number: %f\n", num);
+    printf("Integer part: %f\n", int_part);
+    printf("Fractional part: %f %d %d\n", frac_part, (frac_part==0)? (int)num:(int)num+1);
+
+    return 0;
+}

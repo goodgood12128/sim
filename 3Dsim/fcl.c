@@ -144,7 +144,7 @@ Status services_2_r_read(struct ssd_info * ssd)
 	for (i = 0; i < ssd->parameter->channel_number; i++)                                    
 	{
 		for (j = 0; j < ssd->parameter->chip_channel[i]; j++)
-		{
+		{ // 当前状态为chip read busy时才可以写入
 			if ((ssd->channel_head[i].chip_head[j].current_state == CHIP_READ_BUSY) ||
 				((ssd->channel_head[i].chip_head[j].next_state == CHIP_READ_BUSY) &&
 				(ssd->channel_head[i].chip_head[j].next_state_predict_time <= ssd->current_time)))
@@ -391,7 +391,6 @@ Status services_2_r_wait(struct ssd_info * ssd, unsigned int channel)
 	for (chip = 0; chip < ssd->parameter->chip_channel[channel]; chip++)
 	{
 		/*************************************************************************************************************************************/
-		//�ж��յ���gc�źţ������resume���źţ�����лָ���������
 		if (ssd->channel_head[channel].chip_head[chip].gc_signal != SIG_NORMAL)
 		{
 			if ((ssd->channel_head[channel].chip_head[chip].current_state == CHIP_IDLE) || ((ssd->channel_head[channel].chip_head[chip].next_state == CHIP_IDLE) &&

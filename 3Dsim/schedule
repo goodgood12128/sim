@@ -25,8 +25,59 @@
 再看一下age和warm出错的原因
     奇怪 age之前plane中的block0 free page即为0
 
-添加压缩功能
+首先，这个代码有问题，warm flash会导致闪存全部写满
 
+最好是不影响读写性能的前提下提高可靠性
+思考Huffman+AC是否可行
+需要先弄明白Huffman对读写性能的影响有多大 以及优化空间在哪 
+
+添加压缩功能
+    记住！压缩和解压的单位要一样，所以压缩的粒度也是一个问题
+    直接改变请求大小；
+        可以将压缩后的数据存放到DRAM中；增加了DRAM的数据密度，由于访问DRAM的速度比访问flash的速度要快，所以可能可以提高性能，但是添加了压缩解压延迟
+        也可以当flash的buffer满了之后再压缩；
+            每个页到了buffer就压缩；方便对齐，避免数据跨4KB
+            三个页都到了buffer再压缩；一起压缩压缩率更高，适合大粒度顺序读取的数据
+    改变block中page的数量;
+        直接用SLC模拟Huffman编码后的数据，将压缩后的数据大小除以3
+    修改读请求延迟;
+    修改传输延迟;
+    添加压缩解压延迟（分为数据从flash中读和从dram中读） 
+    （可能会出现由于对齐导致的数据膨胀）
+
+initiation
+pre_process_page
+warm_flash
+make_aged
+    有问题
+simulate
+    get_requests
+    buffer_management/no_buffer_distribute
+        no_buffer_distribute 有问题
+        check_w_buff
+        insert2buffer
+    process
+        gc
+        services_2_r_read
+            find_read_sub_request（CHIP_READ_BUSY）
+            go_one_step 当前状态是SR_R_READ下一个阶段是SR_R_DATA_TRANSFER
+        services_2_r_complete
+            在channel级别查找未结束的sub request并挂载到channel_head->subs_r_tail中
+        services_2_r_wait
+            resume_erase_operation
+            find_r_wait_sub_request
+            go_one_step 当前状态是SR_R_C_A_TRANSFER下一个阶段是SR_R_READ
+        services_2_r_data_trans
+            find_read_sub_request（CHIP_DATA_TRANSFER）
+            go_one_step 当前状态是SR_R_DATA_TRANSFER下一个阶段是SR_COMPLETE
+        services_2_write
+            DYNAMIC_ALLOCATION or STATIC_ALLOCATION or HYBRID_ALLOCATION
+                dynamic_advanced_process（CHIP_IDLE）
+                    service_advance_command or get_ppn_for_normal_command
+                        get_ppn_for_advanced_commands
+statistic_output
+
+请求会被划分为page然后写入，从dram中
 
 
             

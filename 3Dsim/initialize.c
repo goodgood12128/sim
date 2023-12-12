@@ -516,9 +516,9 @@ struct parameter_value *load_parameters(char parameter_file[30])
 		buf[pre_eql] = 0;
 		if((res_eql=strcmp(buf,"chip number")) ==0){			
 			sscanf(buf + next_eql,"%d",&p->chip_num);           //The number of chips
-		}else if((res_eql=strcmp(buf,"t_Com_ratio")) ==0){
+		}else if((res_eql=strcmp(buf,"compress_ratio")) ==0){
 			sscanf(buf + next_eql,"%f",&p->comp_ratio);      //The size of the cache, the unit is byte
-		}else if((res_eql=strcmp(buf,"t_Com_std")) ==0){
+		}else if((res_eql=strcmp(buf,"comp_std_dev")) ==0){
 			sscanf(buf + next_eql,"%f",&p->comp_std_dev);      //The size of the cache, the unit is byte
 		}else if((res_eql=strcmp(buf,"dram capacity")) ==0){
 			sscanf(buf + next_eql,"%d",&p->dram_capacity);      //The size of the cache, the unit is byte
@@ -554,6 +554,10 @@ struct parameter_value *load_parameters(char parameter_file[30])
 			sscanf(buf + next_eql, "%d", &p->time_characteristics.tWC); //Transfer address One byte of time
 		}else if ((res_eql = strcmp(buf, "t_RC")) == 0){
 			sscanf(buf + next_eql, "%d", &p->time_characteristics.tRC); //The time it takes to transfer data one byte
+		}else if ((res_eql = strcmp(buf, "t_COMP")) == 0){
+			sscanf(buf + next_eql, "%d", &p->time_characteristics.tCOMP); //The time it takes to transfer data one byte
+		}else if ((res_eql = strcmp(buf, "t_DECOMP")) == 0){
+			sscanf(buf + next_eql, "%d", &p->time_characteristics.tDECOMP); //The time it takes to transfer data one byte
 		}else if((res_eql=strcmp(buf,"t_CLS")) ==0){
 			sscanf(buf + next_eql,"%d",&p->time_characteristics.tCLS); 
 		}else if((res_eql=strcmp(buf,"t_CLH")) ==0){

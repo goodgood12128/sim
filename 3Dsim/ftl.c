@@ -236,22 +236,22 @@ struct allocation_info* pre_process_allocation(struct ssd_info *ssd, unsigned in
 
 	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)                           /*Dynamic way to get ppn*/
 	{
-		if (ssd->parameter->dynamic_allocation == CHANNEL_DYNAMIC_ALLOCATION)						  //assign priority��channel>die>plane
+		if (ssd->parameter->dynamic_allocation == CHANNEL_DYNAMIC_ALLOCATION)						  //assign priority：channel>die>plane
 		{
-
 			channel = ssd->token;
-			ssd->token = (ssd->token + 1) % ssd->parameter->channel_number;
 			chip = ssd->channel_head[channel].token;
-			ssd->channel_head[channel].token = (chip + 1) % ssd->parameter->chip_channel[0];
 			die = ssd->channel_head[channel].chip_head[chip].token;
-			ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
 			plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
+
+			ssd->token = (ssd->token + 1) % ssd->parameter->channel_number;
+			ssd->channel_head[channel].token = (chip + 1) % ssd->parameter->chip_channel[0];
+			ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
 
 			ssd->page_count++;
 
 			if (ssd->parameter->flash_mode == TLC_MODE)
 			{
-				if (ssd->page_count % PAGE_INDEX == 0)                                      //tlcģʽ�£�����дͬ��die������ҳ��д������ȥд�����plane
+				if (ssd->page_count % PAGE_INDEX == 0)                                      //tlc模式下，首先写同个die的三个页，写满了再去写另外的plane
 				{
 					ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
 					ssd->page_count = 0;
@@ -263,8 +263,8 @@ struct allocation_info* pre_process_allocation(struct ssd_info *ssd, unsigned in
 				ssd->page_count = 0;
 			}
 		}
-		else if (ssd->parameter->dynamic_allocation == PLANE_DYNAMIC_ALLOCATION)																		//assign priority��plane>channel>die
-		{
+		else if (ssd->parameter->dynamic_allocation == PLANE_DYNAMIC_ALLOCATION)					 //assign priority：plane>channel>die
+		{ // channel chip die plane是lpn写入的地方
 			channel = ssd->token;
 			chip = ssd->channel_head[channel].token;
 			die = ssd->channel_head[channel].chip_head[chip].token;
@@ -272,12 +272,13 @@ struct allocation_info* pre_process_allocation(struct ssd_info *ssd, unsigned in
 			ssd->page_count++;
 
 			if (ssd->parameter->flash_mode == TLC_MODE)
-			{
+			{ // plane的三个页写满了
 				if (ssd->page_count % PAGE_INDEX == 0)
-				{
+				{   // plane 优先，接下来写同一个die的另外 plane
 					ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
+					// die的每个plane都写了
 					if (plane == (ssd->parameter->plane_die - 1))
-					{
+					{ // channel齐次，接下来写入下一个channel
 						ssd->token = (ssd->token + 1) % ssd->parameter->channel_number;
 						ssd->channel_head[channel].token = (ssd->channel_head[channel].token + 1) % ssd->parameter->chip_channel[0];
 						if (ssd->token == 0)
@@ -305,13 +306,13 @@ struct allocation_info* pre_process_allocation(struct ssd_info *ssd, unsigned in
 		}
 		else if (ssd->parameter->dynamic_allocation == STRIPE_DYNAMIC_ALLOCATION || ssd->parameter->dynamic_allocation == OSPA_DYNAMIC_ALLOCATION || ssd->parameter->dynamic_allocation == POLL_DISTRANCE_ALLOCATION)
 		{
-			//���β�����Ӧ��location
+			//本次操作对应的location
 			channel = ssd->token;
 			chip = ssd->channel_head[channel].token;
 			die = ssd->channel_head[channel].chip_head[chip].token;
 			plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
 
-			//�����´β���������
+			//更新下次操作的令牌
 			ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
 			if (ssd->channel_head[channel].chip_head[chip].die_head[die].token == 0)
 			{
@@ -324,9 +325,9 @@ struct allocation_info* pre_process_allocation(struct ssd_info *ssd, unsigned in
 	}
 	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
 	{
-		//Ԥ�����ķ��䣬��ֱ��ȥд������Ӧ�÷��䵽��Ӧ��plane��,���վ�̬���䷽ʽȥ����(��tlc/slc mode)
+		//预处理的分配，是直接去写，所以应该分配到对应的plane上,按照静态分配方式去进行(分tlc/slc mode)
 		if (ssd->parameter->flash_mode == TLC_MODE)
-		{
+		{ 
 			switch (ssd->parameter->static_allocation)
 			{
 			case PLANE_STATIC_ALLOCATION:													 //1.plane>superpage>channel>chip>die 
@@ -383,7 +384,7 @@ struct allocation_info* pre_process_allocation(struct ssd_info *ssd, unsigned in
 		}
 	}
 
-	//���ص����صĽṹ����
+	//挂载到返回的结构体上
 	allocated_info->channel = channel;
 	allocated_info->chip = chip;
 	allocated_info->die = die;

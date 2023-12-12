@@ -115,7 +115,12 @@ void main(int argc, char *argv[])
 	printf("Press Enter to continue...");
 }
 
-
+/*
+ 首先根据page.parameter文件初始化SSD
+ 预处理负载中没有写入的读请求
+ 模拟使用过一段时间的SSD warm和age
+ 处理请求
+*/
 void tracefile_sim(struct ssd_info *ssd)
 {
 	unsigned  int i, j, k, p, m, n, invalid = 0;
@@ -129,6 +134,19 @@ void tracefile_sim(struct ssd_info *ssd)
 
 	// SSD 预处理建立映射表,预先处理没写入的读请求
 	pre_process_page(ssd);
+	for (i=0;i<ssd->parameter->channel_number;i++)
+	{
+		for (m = 0; m < ssd->parameter->chip_channel[i]; m++)
+		{
+			for (j = 0; j < ssd->parameter->die_chip; j++)
+			{
+				for (k = 0; k < ssd->parameter->plane_die; k++)
+				{	
+					printf("free_page: %d,%d,%d,%d:  %5d\n", i, m, j, k, ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].free_page);
+				}
+			}
+		}
+	}
 	
 	warm_flash(ssd);
 	for (i=0;i<ssd->parameter->channel_number;i++)
@@ -139,13 +157,7 @@ void tracefile_sim(struct ssd_info *ssd)
 			{
 				for (k = 0; k < ssd->parameter->plane_die; k++)
 				{	
-					/*
-					for (p = 0; p < ssd->parameter->block_plane; p++)
-					{
-						printf("%d,0,%d,%d,%d,%d:  %5d\n", i, m, j, k, p, ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].last_write_page);
-					}
-					*/
-					printf("free_page: %d,0,%d,%d,%d:  %5d\n", i, m, j, k, ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].free_page);
+					printf("free_page: %d,%d,%d,%d:  %5d\n", i, m, j, k, ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].free_page);
 				}
 			}
 		}
@@ -270,7 +282,7 @@ struct ssd_info *simulate(struct ssd_info *ssd)
 				{
 					buffer_management(ssd);
 				}
-			} 
+			} 	
 			else
 			{
 				no_buffer_distribute(ssd);
@@ -387,8 +399,8 @@ struct ssd_info *process(struct ssd_info *ssd)
 			*2.followed by the state of the read flash
 			*3.end by processing write sub_request
 			**********************************************************/
-			services_2_r_wait(ssd, i);							  //flag=1,channel is busy��else idle....                  
-			if ((ssd->channel_head[i].channel_busy_flag == 0) && (ssd->channel_head[i].subs_r_head != NULL))					  //chg_cur_time_flag=1,current_time has changed��chg_cur_time_flag=0,current_time has not changed  			
+			services_2_r_wait(ssd, i);		 //flag=1,channel is busy��else idle....                  
+			if ((ssd->channel_head[i].channel_busy_flag == 0) && (ssd->channel_head[i].subs_r_head != NULL))	 //chg_cur_time_flag=1,current_time has changed��chg_cur_time_flag=0,current_time has not changed  			
 				services_2_r_data_trans(ssd, i);
 
 			//Write request state jump
@@ -1082,7 +1094,6 @@ struct ssd_info *make_aged(struct ssd_info *ssd)
 					for (l=0;l<ssd->parameter->plane_die;l++)
 					{  
 						flag=0;
-						printf("before block free_page: %5d\n", ssd->channel_head[i].chip_head[j].die_head[k].plane_head[l].blk_head[0].free_page_num);
 						// printf("before plane free_page: %5d\n", ssd->channel_head[i].chip_head[j].die_head[k].plane_head[l].free_page);
 						for (m=0;m<ssd->parameter->block_plane;m++)
 						{  
@@ -1091,7 +1102,9 @@ struct ssd_info *make_aged(struct ssd_info *ssd)
 								break;
 							}
 							//Note that aged_ratio+1 here, that the final conditions to meet the old conditions will remain all the remaining free block.
-							for (n=0;n<(ssd->parameter->page_block*ssd->parameter->aged_ratio+1) && ssd->channel_head[i].chip_head[j].die_head[k].plane_head[l].blk_head[m].free_page_num > 0;n++)
+							// for (n=0;n<(ssd->parameter->page_block*ssd->parameter->aged_ratio+1) && ssd->channel_head[i].chip_head[j].die_head[k].plane_head[l].blk_head[m].free_page_num > 0;n++)
+							// printf("before block free_page: %5d\n", ssd->channel_head[i].chip_head[j].die_head[k].plane_head[l].blk_head[m].free_page_num);
+							for (n=0;n<(ssd->parameter->page_block*ssd->parameter->aged_ratio+1);n++)
 							{  
 								if(ssd->channel_head[i].chip_head[j].die_head[k].plane_head[l].blk_head[m].free_page_num < ssd->parameter->page_block*ssd->parameter->aged_ratio) break;
 								ssd->channel_head[i].chip_head[j].die_head[k].plane_head[l].blk_head[m].page_head[n].valid_state=0;        //Indicates that a page is invalid and both the valid and free states are 0
@@ -1107,8 +1120,8 @@ struct ssd_info *make_aged(struct ssd_info *ssd)
 							
 							}
 							ssd->make_age_free_page = ssd->channel_head[i].chip_head[j].die_head[k].plane_head[l].blk_head[m].free_page_num;
+							// printf("after block free_page: %5d\n", ssd->channel_head[i].chip_head[j].die_head[k].plane_head[l].blk_head[m].free_page_num);
 						} 
-						printf("block free_page: %5d\n", ssd->channel_head[i].chip_head[j].die_head[k].plane_head[l].blk_head[0].free_page_num);
 						// printf("after plane free_page: %5d\n", ssd->channel_head[i].chip_head[j].die_head[k].plane_head[l].free_page);
 					}	 
 	}  
@@ -1146,7 +1159,7 @@ struct ssd_info *pre_process_write(struct ssd_info *ssd)
 					printf("before plane free_page: %5d\n", ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].free_page);
 					for (p = 0; p < ssd->parameter->block_plane; p++)
 					{
-						printf("before %d\n",  ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num);
+						// printf("before %d\n",  ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num);
 						if ((ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num > 0) && (ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num < ssd->parameter->page_block))
 						{
 							if (ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num == ssd->make_age_free_page)			//The current block is invalid page, all set invalid current block

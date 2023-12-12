@@ -47,6 +47,22 @@ Zuo Lu				2018/02/07        2.0			The release version 									lzuo@hust.edu.cn
 
 extern int secno_num_per_page, secno_num_sub_page;
 
+double generate_normal_random(double mean, double variance) {
+    // 使用Box-Muller变换生成标准正态分布的随机数
+    double u1, u2, z0;
+    do {
+        u1 = ((double)rand() / RAND_MAX) * 2 - 1;
+        u2 = ((double)rand() / RAND_MAX) * 2 - 1;
+        z0 = u1 * u1 + u2 * u2;
+    } while (z0 > 1 || z0 == 0);
+
+    double z1 = sqrt(-2.0 * log(z0) / z0);
+    
+    // Apply range restrictions
+    double random_number = mean + sqrt(variance) * u1 * z1;
+    return (random_number < 0) ? 0 : ((random_number > 1) ? 1 : random_number);
+}
+
 /********    get_request    ******************************************************
 *	1.get requests that arrived already
 *	2.add those request node to ssd->reuqest_queue
@@ -205,6 +221,10 @@ int get_requests(struct ssd_info *ssd)
 	request1->time = time_t;
 	request1->lsn = lsn;
 	request1->size = size;
+	double compress_ratio = generate_normal_random(ssd->parameter->comp_ratio, ssd->parameter->comp_std_dev);
+	double int_part;
+	request1->compressed_size = (modf(size*compress_ratio/3, &int_part)==0)?(int)size*compress_ratio/3:(int)size*compress_ratio/3+1;
+	request1->size = (modf(size*compress_ratio, &int_part)==0)?(int)size*compress_ratio:(int)size*compress_ratio+1;
 	/*
 	if (ssd->pre_process_cmplt == 0 && ope == READ)
 		request1->operation = WRITE;

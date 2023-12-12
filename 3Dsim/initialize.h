@@ -57,9 +57,9 @@ Zuo Lu				2018/02/07        2.0			The release version 									lzuo@hust.edu.cn
 
 #define CHANNEL_DYNAMIC_ALLOCATION 0
 #define PLANE_DYNAMIC_ALLOCATION 1
-#define STRIPE_DYNAMIC_ALLOCATION 2			//�����滻��˳����ѯ���䵽ÿ��die_buffer����
-#define OSPA_DYNAMIC_ALLOCATION 3			//���վ���Զ�ķ��������䵽����Զ��die_buffer����
-#define POLL_DISTRANCE_ALLOCATION 4			//�ۺ���ѯ�;���İ취�����߼�ˣ�����̫����������ǰ��ѯ����һ��
+#define STRIPE_DYNAMIC_ALLOCATION 2			//按照替换的顺序，轮询分配到每个die_buffer上面
+#define OSPA_DYNAMIC_ALLOCATION 3			//按照距离远的方法，分配到距离远的die_buffer上面
+#define POLL_DISTRANCE_ALLOCATION 4			//综合轮询和距离的办法，两者兼顾，距离太近则跳过当前轮询到下一个
 
 #define SLC_MODE 0
 #define TLC_MODE 1
@@ -104,6 +104,8 @@ Zuo Lu				2018/02/07        2.0			The release version 									lzuo@hust.edu.cn
 *other status , And read and write requests (sub) wait, read command address transfer, read, read data transfer, 
 *write command address transfer, write data transfer, write transfer, completion and other status
 ************************************************************************************************************/
+#define DE_COMPRESS_BUSY 500
+#define DE_COMPRESS_IDLE 501
 
 #define CHANNEL_IDLE 000
 #define CHANNEL_C_A_TRANSFER 3
@@ -187,6 +189,8 @@ struct ac_time_characteristics{
 	int tAR;       //ALE to RE delay
 	int tCLR;      //CLE to RE delay
 	int tRR;       //ready to RE low
+	int tCOMP;
+	int tDECOMP;
 	int tRP;       //RE pulse width
 	int tWB;       //WE high to busy
 	int tRC;       //read cycle time
