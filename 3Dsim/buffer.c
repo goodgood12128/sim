@@ -147,10 +147,14 @@ struct ssd_info *handle_write_buffer(struct ssd_info *ssd, struct request *req)
 		//	}
 		//}
 
-		if (req->operation == READ)                                                     //读写最小单位是page 
+		if (req->operation == READ){
 			ssd = check_w_buff(ssd, lpn, state, NULL, req);
-		else if (req->operation == WRITE)
+
+		}                                                     //读写最小单位是page 
+		else if (req->operation == WRITE){
 			ssd = insert2buffer(ssd, lpn, state, NULL, req);
+
+		}
 
 		lpn++;
 	}
@@ -199,13 +203,15 @@ struct ssd_info * check_w_buff(struct ssd_info *ssd, unsigned int lpn, int state
 			ssd->dram->buffer->read_miss_hit++;
 		}
 	}
+
 	return ssd;
 }
 
 /*******************************************************************************
 *The function is to write data to the buffer,Called by buffer_management()
+sub = NULL
 ********************************************************************************/
-struct ssd_info * insert2buffer(struct ssd_info *ssd, unsigned int lpn, int state, struct sub_request *sub, struct request *req)
+struct ssd_info *insert2buffer(struct ssd_info *ssd, unsigned int lpn, int state, struct sub_request *sub, struct request *req)
 {
 	int write_back_count, flag = 0;                                                             /*flag��ʾΪд���������ڿռ��Ƿ���ɣ�0��ʾ��Ҫ��һ���ڣ�1��ʾ�Ѿ��ڿ�*/
 	unsigned int sector_count, active_region_flag = 0, free_sector = 0;
@@ -238,6 +244,7 @@ struct ssd_info * insert2buffer(struct ssd_info *ssd, unsigned int lpn, int stat
 				sub_req = NULL;
 				sub_req_state = ssd->dram->buffer->buffer_tail->stored;
 				sub_req_size = size(ssd->dram->buffer->buffer_tail->stored);
+				// fprintf(ssd->outputfile,"sub_req_size:%d\n", sub_req_size);
 				sub_req_lpn = ssd->dram->buffer->buffer_tail->group;
 				
 				/*
@@ -295,13 +302,14 @@ struct ssd_info * insert2buffer(struct ssd_info *ssd, unsigned int lpn, int stat
 		ssd->dram->buffer->buffer_head = new_node;
 		new_node->LRU_link_pre = NULL;
 		avlTreeAdd(ssd->dram->buffer, (TREE_NODE *)new_node);
+		fprintf(ssd->outputfile,"sub_req_size:%d\n", size(state));
 		ssd->dram->buffer->buffer_sector_count += sector_count;
 		ssd->dram->buffer->write_hit++;
 	}
 	else
 	{
 		ssd->dram->buffer->write_hit++;
-		if ((state&buffer_node->stored) == state)   //��ȫ����
+		if ((state&buffer_node->stored) == state)   //完全命中
 		{
 			if (req != NULL)
 			{
@@ -934,7 +942,7 @@ int64_t calculate_distance(struct ssd_info * ssd, struct buffer_info * die_buffe
 }
 
 
-struct ssd_info * insert2_command_buffer(struct ssd_info * ssd, struct buffer_info * command_buffer, unsigned int lpn, int size_count, unsigned int state, struct request * req, unsigned int operation)
+struct ssd_info *insert2_command_buffer(struct ssd_info * ssd, struct buffer_info * command_buffer, unsigned int lpn, int size_count, unsigned int state, struct request * req, unsigned int operation)
 {
 	unsigned int i = 0;
 	unsigned int sub_req_state = 0, sub_req_size = 0, sub_req_lpn = 0;
@@ -957,7 +965,7 @@ struct ssd_info * insert2_command_buffer(struct ssd_info * ssd, struct buffer_in
 		}
 		*/
 
-		//���� һ��buff_node,�������ҳ������ֱ�ֵ��������Ա���������ӵ�����
+		//生成一个buff_node,根据这个页的情况分别赋值给各个成员，并且添加到队首
 		new_node = NULL;
 		new_node = (struct buffer_group *)malloc(sizeof(struct buffer_group));
 		alloc_assert(new_node, "buffer_group_node");
@@ -981,7 +989,8 @@ struct ssd_info * insert2_command_buffer(struct ssd_info * ssd, struct buffer_in
 		avlTreeAdd(command_buffer, (TREE_NODE *)new_node);
 		command_buffer->command_buff_page++;
 
-		//���������������ʱ����flush��������������ڴ�һ����flush��������
+		//如果缓存已满，此时发生flush操作，将缓存的内存一次性flush到闪存上
+		// initialize.c:initialize_dram
 		if (command_buffer->command_buff_page >= command_buffer->max_command_buff_page)
 		{
 			if (ssd->warm_flash_cmplt == 0)
@@ -997,14 +1006,12 @@ struct ssd_info * insert2_command_buffer(struct ssd_info * ssd, struct buffer_in
 				sub_req_lpn = command_buffer->buffer_tail->group;
 				sub_req = creat_sub_request(ssd, sub_req_lpn, sub_req_size, sub_req_state,req, operation);
 
-				//ɾ��buff�еĽڵ�
 				pt = command_buffer->buffer_tail;
 				avlTreeDel(command_buffer, (TREE_NODE *)pt);
 				if (command_buffer->buffer_head->LRU_link_next == NULL){
 					command_buffer->buffer_head = NULL;
 					command_buffer->buffer_tail = NULL;
-				}
-				else{
+				}else{
 					command_buffer->buffer_tail = command_buffer->buffer_tail->LRU_link_pre;
 					command_buffer->buffer_tail->LRU_link_next = NULL;
 				}
@@ -1073,7 +1080,7 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 	sub->next_subs = NULL;
 	sub->update = NULL;
 
-	//��������������������ϣ�Ϊ�����ִ�������׼��
+	//将子请求挂载在总请求上，为请求的执行完成做准备
 	if (req != NULL)
 	{
 		sub->next_subs = req->subs;
@@ -1082,8 +1089,8 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 	}
 
 	/*************************************************************************************
-	*�ڶ�����������£���һ��ǳ���Ҫ����ҪԤ���ж϶�������������Ƿ����������������ͬ�ģ�
-	*�еĻ�����������Ͳ�����ִ���ˣ����µ�������ֱ�Ӹ�Ϊ���
+	*在读操作的情况下，有一点非常重要就是要预先判断读子请求队列中是否有与这个子请求相同的，
+	*有的话，新子请求就不必再执行了，将新的子请求直接赋为完成
 	**************************************************************************************/
 	if (operation == READ)
 	{
@@ -1108,7 +1115,7 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 		flag = 0;
 		while (sub_r != NULL)                                    
 		{
-			if (sub_r->ppn == sub->ppn)                             //�ж���û�з�����ͬppn��������    �����αȽ�ppn
+			if (sub_r->ppn == sub->ppn)  //�ж���û�з�����ͬppn��������    �����αȽ�ppn
 			{
 				flag = 1;
 				break;
@@ -1138,7 +1145,7 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 		}
 	}
 	/*************************************************************************************
-	*д���������£�����Ҫ���õ�����allocate_location(ssd ,sub)��������̬����Ͷ�̬������
+	*写请求的情况下，就需要利用到函数allocate_location(ssd ,sub)来处理静态分配和动态分配了
 	**************************************************************************************/
 	else if (operation == WRITE)
 	{
@@ -1176,7 +1183,16 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 		printf("\nERROR ! Unexpected command.\n");
 		return NULL;
 	}
-
+	struct sub_request* subt;
+	for (int i = 0; i < ssd->parameter->channel_number; i++)                                    
+	{
+		subt = ssd->channel_head[i].subs_r_head;
+		while (subt != NULL)
+		{
+			int f = (subt->location->chip == 0);
+			subt = subt->next_node;
+		}
+	}  
 	return sub;
 }
 
@@ -1190,7 +1206,7 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req)
 	unsigned int flag;
 	struct allocation_info * allocation1 = NULL;
 
-	//�ж��Ƿ���������д����������д����Ҫ�ȶ���д
+	//判断是否会产生更新写操作，更新写操作要先读后写
 	if (ssd->dram->map->map_entry[sub_req->lpn].state != 0)
 	{
 		if ((sub_req->state&ssd->dram->map->map_entry[sub_req->lpn].state) != ssd->dram->map->map_entry[sub_req->lpn].state)
@@ -1262,7 +1278,7 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req)
 		}
 	}
 
-	//���ղ�ͬ�ķ�����ԣ����з���
+	//按照不同的分配策略，进行分配
 	allocation1 = allocation_method(ssd, sub_req->lpn, ALLOCATION_MOUNT);
 	
 	sub_req->location->channel = allocation1->channel;
@@ -1270,7 +1286,7 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req)
 	sub_req->location->die = allocation1->die;
 	sub_req->location->plane = allocation1->plane;
 
-	//����mount_flag, ѡ�������channel�ϻ���ssd��
+	//根据mount_flag, 选择挂载在channel上还是ssd上
 	if (allocation1->mount_flag == SSD_MOUNT)
 	{
 		if (ssd->subs_w_tail != NULL)
@@ -1298,7 +1314,7 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req)
 		}
 	}
 
-	//���¶�����������ڸ�������
+	//更新读的请求挂载在该请求上
 	if (update != NULL)
 	{
 		sub_req->update_read_flag = 1;

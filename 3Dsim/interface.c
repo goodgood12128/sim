@@ -47,22 +47,6 @@ Zuo Lu				2018/02/07        2.0			The release version 									lzuo@hust.edu.cn
 
 extern int secno_num_per_page, secno_num_sub_page;
 
-double generate_normal_random(double mean, double variance) {
-    // 使用Box-Muller变换生成标准正态分布的随机数
-    double u1, u2, z0;
-    do {
-        u1 = ((double)rand() / RAND_MAX) * 2 - 1;
-        u2 = ((double)rand() / RAND_MAX) * 2 - 1;
-        z0 = u1 * u1 + u2 * u2;
-    } while (z0 > 1 || z0 == 0);
-
-    double z1 = sqrt(-2.0 * log(z0) / z0);
-    
-    // Apply range restrictions
-    double random_number = mean + sqrt(variance) * u1 * z1;
-    return (random_number < 0) ? 0 : ((random_number > 1) ? 1 : random_number);
-}
-
 /********    get_request    ******************************************************
 *	1.get requests that arrived already
 *	2.add those request node to ssd->reuqest_queue
@@ -85,7 +69,7 @@ int get_requests(struct ssd_info *ssd)
 	printf("enter get_requests,  current time:%I64u\n", ssd->current_time);
 #endif
 	
-	//����trace����Ľ������
+	//对于trace读完的结束设计
 	if (ssd->trace_over_flag == 1)
 	{
 		nearest_event_time = find_nearest_event(ssd);
@@ -93,6 +77,7 @@ int get_requests(struct ssd_info *ssd)
 			ssd->current_time = nearest_event_time;
 		else
 			ssd->current_time += 5000000;
+		// printf("ssd->trace_over_flag: %d\n", ssd->trace_over_flag);
 		return 0;
 	}
 	
@@ -105,6 +90,7 @@ int get_requests(struct ssd_info *ssd)
 			filepoint = ftell(ssd->tracefile);
 			fgets(buffer, 200, ssd->tracefile);
 			sscanf(buffer, "%lu %d %d %d %d", &time_t, &device, &lsn, &size, &ope);
+			// printf("%lu %d %d %d %d\n", time_t, device, lsn, size, ope);
 		}
 		else
 		{ //跳过写请求
@@ -140,7 +126,7 @@ int get_requests(struct ssd_info *ssd)
 	lsn = lsn%large_lsn;
 
 	nearest_event_time = find_nearest_event(ssd);  //Find the time of the latest event
-
+	// printf("nearest_event_time %lld\n", nearest_event_time);
 
 	/**********************************************************************
 	*nearest_event_time = 0x7fffffffffffffff,the channel and chip is idle
@@ -152,11 +138,13 @@ int get_requests(struct ssd_info *ssd)
 		if (ssd->buffer_full_flag == 1)			   
 		{
 			fseek(ssd->tracefile, filepoint, 0);
+			// printf("nearest_event_time == 0x7fffffffffffffff ssd->buffer_full_flag == 1\n");
 			return -1;
 		}
 		else if (ssd->request_queue_length >= ssd->parameter->queue_length)  //request queue is full, request should be block
 		{
 			fseek(ssd->tracefile, filepoint, 0);
+			// printf("ssd->request_queue_length >= ssd->parameter->queue_length\n");
 			return 0;
 		}
 		
@@ -167,6 +155,7 @@ int get_requests(struct ssd_info *ssd)
 		{
 			fseek(ssd->tracefile, filepoint, 0);
 			ssd->current_time = nearest_event_time;
+			// printf("nearest_event_time != 0x7fffffffffffffff ssd->buffer_full_flag == 1\n");
 			return -1;
 		}
 		
@@ -177,6 +166,7 @@ int get_requests(struct ssd_info *ssd)
 		if (nearest_event_time<time_t)
 		{
 			fseek(ssd->tracefile, filepoint, 0);
+			// printf("nearest_event_time != 0x7fffffffffffffff nearest_event_time<time_t %lld %lld\n",ssd->current_time, nearest_event_time);
 			if (ssd->current_time <= nearest_event_time)
 				ssd->current_time = nearest_event_time;
 			return -1;
@@ -191,6 +181,7 @@ int get_requests(struct ssd_info *ssd)
 			{
 				fseek(ssd->tracefile, filepoint, 0);
 				ssd->current_time = nearest_event_time;
+				// printf("nearest_event_time != 0x7fffffffffffffff ssd->request_queue_length >= ssd->parameter->queue_length %lld\n",nearest_event_time);
 				return -1;
 			}
 			else
@@ -211,6 +202,7 @@ int get_requests(struct ssd_info *ssd)
 	{
 		request1 = NULL;
 		ssd->trace_over_flag = 1;
+		printf("feof(ssd->tracefile)\n");
 		return 0;
 	}
 
@@ -221,10 +213,10 @@ int get_requests(struct ssd_info *ssd)
 	request1->time = time_t;
 	request1->lsn = lsn;
 	request1->size = size;
-	double compress_ratio = generate_normal_random(ssd->parameter->comp_ratio, ssd->parameter->comp_std_dev);
-	double int_part;
-	request1->compressed_size = (modf(size*compress_ratio/3, &int_part)==0)?(int)size*compress_ratio/3:(int)size*compress_ratio/3+1;
-	request1->size = (modf(size*compress_ratio, &int_part)==0)?(int)size*compress_ratio:(int)size*compress_ratio+1;
+	// double compress_ratio = generate_normal_random(ssd->parameter->comp_ratio, ssd->parameter->comp_std_dev);
+	// double int_part;
+	// request1->compressed_size = (modf(size*compress_ratio/3, &int_part)==0)?(int)size*compress_ratio/3:(int)size*compress_ratio/3+1;
+	// request1->size = (modf(size*compress_ratio, &int_part)==0)?(int)size*compress_ratio:(int)size*compress_ratio+1;
 	/*
 	if (ssd->pre_process_cmplt == 0 && ope == READ)
 		request1->operation = WRITE;
@@ -234,7 +226,6 @@ int get_requests(struct ssd_info *ssd)
 			request1 = NULL;
 		}
 	*/
-
 	request1->operation = ope;
 	request1->begin_time = time_t;
 	request1->response_time = 0;
@@ -265,8 +256,6 @@ int get_requests(struct ssd_info *ssd)
 	ssd->request_lz_count++;
 	//printf("request:%I64u\n", ssd->request_lz_count);
 	//printf("%d\n", ssd->request_queue_length);
-
-
 	//if (ssd->request_lz_count == 2104901)
 		//printf("lz\n");
 	

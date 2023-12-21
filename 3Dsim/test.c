@@ -194,17 +194,34 @@ double generate_normal_random(double mean, double variance) {
     return (random_number < 0) ? 0 : ((random_number > 1) ? 1 : random_number);
 }
 
-int main() {
-    double num = 3.34;
-    double int_part, frac_part;
+// int main() {
+//     double num = 3.34;
+//     double int_part, frac_part;
 
-    // 使用 modf 函数将浮点数拆分为整数部分和小数部分
-    frac_part = modf(num/3, &int_part);
+//     // 使用 modf 函数将浮点数拆分为整数部分和小数部分
+//     frac_part = modf(num/3, &int_part);
 
-    // 输出整数部分和小数部分
-    printf("Original number: %f\n", num);
-    printf("Integer part: %f\n", int_part);
-    printf("Fractional part: %f %d %d\n", frac_part, (frac_part==0)? (int)num:(int)num+1);
+//     // 输出整数部分和小数部分
+//     printf("Original number: %f\n", num);
+//     printf("Integer part: %f\n", int_part);
+//     printf("Fractional part: %f %d %d\n", frac_part, (frac_part==0)? (int)num:(int)num+1);
 
+//     return 0;
+// }
+
+int main(){
+    int PAGE_INDEX=3,plane_die=3,i,j;
+    int mutli_subs[100],subs[100];
+    for(int i = 0; i<100; i++){
+        subs[i] = i;
+    }
+    for(i=0;i<plane_die;i++){
+        for(j=0;j<PAGE_INDEX;j++){
+            mutli_subs[i*PAGE_INDEX+j]=subs[j*plane_die+i];
+        }
+    }
+    for(i = 0; i<plane_die*PAGE_INDEX; i++){
+        printf(" %d ", mutli_subs[i]);
+    }
     return 0;
 }

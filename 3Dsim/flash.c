@@ -32,6 +32,9 @@ Zuo Lu				2018/02/07        2.0			The release version 									lzuo@hust.edu.cn
 
 #include <stdlib.h>
 // #include <crtdbg.h>
+#include <time.h>
+#include <string.h>
+#include <math.h>
 
 #include "initialize.h"
 #include "ssd.h"
@@ -40,6 +43,22 @@ Zuo Lu				2018/02/07        2.0			The release version 									lzuo@hust.edu.cn
 #include "interface.h"
 #include "ftl.h"
 #include "fcl.h"
+
+double generate_normal_random(double mean, double variance) {
+    // 使用Box-Muller变换生成标准正态分布的随机数
+    double u1, u2, z0;
+    do {
+        u1 = ((double)rand() / RAND_MAX) * 2 - 1;
+        u2 = ((double)rand() / RAND_MAX) * 2 - 1;
+        z0 = u1 * u1 + u2 * u2;
+    } while (z0 > 1 || z0 == 0);
+
+    double z1 = sqrt(-2.0 * log(z0) / z0);
+    
+    // Apply range restrictions
+    double random_number = mean + sqrt(variance) * u1 * z1;
+    return (random_number < 0) ? 0 : ((random_number > 1) ? 1 : random_number);
+}
 
 
 /******************************************************************************************
@@ -213,6 +232,96 @@ struct ssd_info *flash_page_state_modify(struct ssd_info *ssd, struct sub_reques
 	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].page_head[page].valid_state = sub->state;
 	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].page_head[page].free_state = ((~(sub->state))&full_page);
 	ssd->write_flash_count++;
+
+	return ssd;
+}
+
+
+// 在plane级别，不同于flash_page_state_modify 修改写入plane中单个page的映射关系，包括DRAM中和flash中的
+// 修改plane中WL对应的物理页的映射关系
+struct ssd_info *flash_WL_state_modify(struct ssd_info *ssd, struct sub_request **subs, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane, unsigned int block, unsigned int page)
+{
+	unsigned int ppn, full_page;
+	struct local *location;
+	struct direct_erase *new_direct_erase, *direct_erase_node;
+
+	full_page = ~(0xffffffff << ssd->parameter->subpage_page);
+	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].last_write_page = page+2;
+	// printf("last_write_page %d\n", page+2);
+	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].free_page_num -= 3;
+
+	if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].last_write_page>(ssd->parameter->page_block - 1))
+	{
+		printf("error! the last write page larger than max!!\n");
+		while (1){}
+	}
+
+	//按照4KB对齐，压缩后的三个页面>12KB=1,否则为0
+	//111 则均占用2个sub-page；110 则两个请求占用两个sub-page，共占用3个，剩下一个请求占用上下哪个；100。。。。。
+	int compress_sizes[PAGE_INDEX], compressed_state[PAGE_INDEX], int_part;
+	for(int i=0;i<PAGE_INDEX;i++,page++){
+		struct sub_request *sub = subs[i];
+		double compress_ratio = generate_normal_random(ssd->parameter->comp_ratio, ssd->parameter->comp_std_dev);
+		compress_sizes[i]=(int)ssd->parameter->page_capacity*compress_ratio/3+1;
+		if(compress_sizes[i] > ssd->parameter->subpage_capacity) compressed_state[i]=2;
+		else compressed_state[i]=1;
+
+		if (ssd->dram->map->map_entry[sub->lpn].state == 0)                                        
+		{
+			ssd->dram->map->map_entry[sub->lpn].pn = find_ppn(ssd, channel, chip, die, plane, block, page);
+			ssd->dram->map->map_entry[sub->lpn].state = sub->state;
+		}
+		else 
+		{
+			ppn = ssd->dram->map->map_entry[sub->lpn].pn;
+			location = find_location(ssd, ppn);
+			ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].valid_state = 0;        
+			ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].free_state = 0;
+			ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].compress_data_state = 0;                
+			ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].lpn = 0;
+			ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].invalid_page_num++;
+			if (ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].invalid_page_num == ssd->parameter->page_block)    
+			{
+				new_direct_erase = (struct direct_erase *)malloc(sizeof(struct direct_erase));
+				alloc_assert(new_direct_erase, "new_direct_erase");
+				memset(new_direct_erase, 0, sizeof(struct direct_erase));
+
+				new_direct_erase->block = location->block;
+				new_direct_erase->next_node = NULL;
+				direct_erase_node = ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].erase_node;
+				if (direct_erase_node == NULL)
+				{
+					ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].erase_node = new_direct_erase;
+				}
+				else
+				{
+					new_direct_erase->next_node = ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].erase_node;
+					ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].erase_node = new_direct_erase;
+				}
+			}
+			free(location);
+			location = NULL;
+			ssd->dram->map->map_entry[sub->lpn].pn = find_ppn(ssd, channel, chip, die, plane, block, page);
+			ssd->dram->map->map_entry[sub->lpn].state = (ssd->dram->map->map_entry[sub->lpn].state | sub->state);
+		}
+
+		sub->ppn = ssd->dram->map->map_entry[sub->lpn].pn;
+		sub->location->channel = channel;
+		sub->location->chip = chip;
+		sub->location->die = die;
+		sub->location->plane = plane;
+		sub->location->block = block;
+		sub->location->page = page;
+
+		ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].page_write_count++;
+		ssd->program_count++;
+		ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].free_page--;
+		ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].page_head[page].lpn = sub->lpn;
+		ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].page_head[page].compress_data_state = compressed_state[i];                
+		ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].page_head[page].valid_state = sub->state;
+		ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].page_head[page].free_state = ((~(sub->state))&full_page);
+		ssd->write_flash_count++;
+	}
 
 	return ssd;
 }

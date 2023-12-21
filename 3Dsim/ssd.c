@@ -129,6 +129,8 @@ void tracefile_sim(struct ssd_info *ssd)
 	printf("enter main\n"); 
 	#endif
 
+	srand(9130471924);
+
 	// SSD 参数初始化
 	ssd = initiation(ssd);
 
@@ -269,9 +271,21 @@ struct ssd_info *simulate(struct ssd_info *ssd)
 	fflush(ssd->outputfile);*/
 
 	while(flag!=100)      
-	{        
+	{    
 		/*interface layer*/
-		flag = get_requests(ssd) ;        
+		flag = get_requests(ssd) ;  
+		struct sub_request * subt = NULL;
+		// for (int i = 0; i < ssd->parameter->channel_number; i++)                                    
+		// {
+		// 	subt = ssd->channel_head[i].subs_r_head;
+		// 	while (subt != NULL)
+		// 	{
+		// 		int f = (subt->location->chip == 0);
+		// 		subt = subt->next_node;
+		// 	}
+		// }
+
+		// printf("ssd->current_time %lld get_requests flag %d\n",ssd->current_time,flag);      
 		
 		/*buffer layer*/
 		if (flag == 1 || (flag == 0 && ssd->request_work != NULL))
@@ -297,7 +311,7 @@ struct ssd_info *simulate(struct ssd_info *ssd)
 			}
 
 		}
-		
+	
 		/*ftl+fcl+flash layer*/
 		process(ssd); 
 
@@ -369,6 +383,7 @@ struct ssd_info *process(struct ssd_info *ssd)
 	**********************************************************/
 	time = ssd->current_time;
 	services_2_r_read(ssd);
+
 	services_2_r_complete(ssd);
 
 	//然后执行写操作
@@ -399,13 +414,15 @@ struct ssd_info *process(struct ssd_info *ssd)
 			*2.followed by the state of the read flash
 			*3.end by processing write sub_request
 			**********************************************************/
-			services_2_r_wait(ssd, i);		 //flag=1,channel is busy��else idle....                  
+			services_2_r_wait(ssd, i);		 //flag=1,channel is busy��else idle....             
+					
 			if ((ssd->channel_head[i].channel_busy_flag == 0) && (ssd->channel_head[i].subs_r_head != NULL))	 //chg_cur_time_flag=1,current_time has changed��chg_cur_time_flag=0,current_time has not changed  			
 				services_2_r_data_trans(ssd, i);
-
+					
 			//Write request state jump
 			if (ssd->channel_head[i].channel_busy_flag == 0)
 				services_2_write(ssd, i); 
+
 		}
 
 		/*This section is used to see if the offset addresses in the plane are the same, thus verifying the validity of our code*/
@@ -459,8 +476,9 @@ void trace_output(struct ssd_info* ssd){
 	start_time = 0;
 	end_time = 0;
 
-	if (req == NULL)
+	if (req == NULL){
 		return;
+	}
 
 	while (req != NULL)
 	{
@@ -468,6 +486,7 @@ void trace_output(struct ssd_info* ssd){
 		flag = 1;
 		start_time = 0;
 		end_time = 0;
+		// printf("%d\n", req->response_time);
 		if (req->response_time != 0)
 		{
 			// fprintf(ssd->outputfile, "%16lld %10u %6u %2u %16lld %16lld %16lld\n", req->time, req->lsn, req->size, req->operation, req->begin_time, req->response_time, req->response_time - req->time);
@@ -536,6 +555,7 @@ void trace_output(struct ssd_info* ssd){
 					ssd->request_queue_length--;
 				}
 			}
+		
 		}
 		else
 		{

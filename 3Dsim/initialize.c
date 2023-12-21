@@ -538,6 +538,8 @@ struct parameter_value *load_parameters(char parameter_file[30])
 			sscanf(buf + next_eql,"%d",&p->page_capacity);		//The size of a page
 		}else if((res_eql=strcmp(buf,"subpage capacity")) ==0){
 			sscanf(buf + next_eql,"%d",&p->subpage_capacity);   //The size of a subpage (sector)
+		}else if((res_eql=strcmp(buf,"BD_number")) ==0){
+			sscanf(buf + next_eql,"%d",&p->BD_number);   //The size of block decoder number
 		}else if((res_eql=strcmp(buf,"t_PROG")) ==0){
 			sscanf(buf + next_eql,"%d",&p->time_characteristics.tPROG); //Write time to write flash
 		}else if((res_eql=strcmp(buf,"t_DBSY")) ==0){

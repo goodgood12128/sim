@@ -38,7 +38,20 @@ CMakeFiles/My3Dsim.dir/flash.c.o: /home/zmr/3Dsim/flash.c \
  /usr/include/x86_64-linux-gnu/bits/atomic_wide_counter.h \
  /usr/include/x86_64-linux-gnu/bits/struct_mutex.h \
  /usr/include/x86_64-linux-gnu/bits/struct_rwlock.h /usr/include/alloca.h \
- /usr/include/x86_64-linux-gnu/bits/stdlib-float.h \
+ /usr/include/x86_64-linux-gnu/bits/stdlib-float.h /usr/include/time.h \
+ /usr/include/x86_64-linux-gnu/bits/time.h \
+ /usr/include/x86_64-linux-gnu/bits/types/struct_tm.h \
+ /usr/include/x86_64-linux-gnu/bits/types/struct_itimerspec.h \
+ /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
+ /usr/include/x86_64-linux-gnu/bits/types/__locale_t.h \
+ /usr/include/string.h /usr/include/strings.h /usr/include/math.h \
+ /usr/include/x86_64-linux-gnu/bits/math-vector.h \
+ /usr/include/x86_64-linux-gnu/bits/libm-simd-decl-stubs.h \
+ /usr/include/x86_64-linux-gnu/bits/flt-eval-method.h \
+ /usr/include/x86_64-linux-gnu/bits/fp-logb.h \
+ /usr/include/x86_64-linux-gnu/bits/fp-fast.h \
+ /usr/include/x86_64-linux-gnu/bits/mathcalls-helper-functions.h \
+ /usr/include/x86_64-linux-gnu/bits/mathcalls.h \
  /home/zmr/3Dsim/initialize.h /usr/include/stdio.h \
  /usr/lib/gcc/x86_64-linux-gnu/11/include/stdarg.h \
  /usr/include/x86_64-linux-gnu/bits/types/__fpos_t.h \
@@ -47,13 +60,7 @@ CMakeFiles/My3Dsim.dir/flash.c.o: /home/zmr/3Dsim/flash.c \
  /usr/include/x86_64-linux-gnu/bits/types/__FILE.h \
  /usr/include/x86_64-linux-gnu/bits/types/FILE.h \
  /usr/include/x86_64-linux-gnu/bits/types/struct_FILE.h \
- /usr/include/x86_64-linux-gnu/bits/stdio_lim.h /usr/include/string.h \
- /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
- /usr/include/x86_64-linux-gnu/bits/types/__locale_t.h \
- /usr/include/strings.h /usr/include/time.h \
- /usr/include/x86_64-linux-gnu/bits/time.h \
- /usr/include/x86_64-linux-gnu/bits/types/struct_tm.h \
- /usr/include/x86_64-linux-gnu/bits/types/struct_itimerspec.h \
- /usr/include/ctype.h /home/zmr/3Dsim/avlTree.h /home/zmr/3Dsim/ssd.h \
- /home/zmr/3Dsim/flash.h /home/zmr/3Dsim/buffer.h \
- /home/zmr/3Dsim/interface.h /home/zmr/3Dsim/ftl.h /home/zmr/3Dsim/fcl.h
+ /usr/include/x86_64-linux-gnu/bits/stdio_lim.h /usr/include/ctype.h \
+ /home/zmr/3Dsim/avlTree.h /home/zmr/3Dsim/ssd.h /home/zmr/3Dsim/flash.h \
+ /home/zmr/3Dsim/buffer.h /home/zmr/3Dsim/interface.h \
+ /home/zmr/3Dsim/ftl.h /home/zmr/3Dsim/fcl.h

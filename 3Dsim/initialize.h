@@ -71,6 +71,7 @@ Zuo Lu				2018/02/07        2.0			The release version 									lzuo@hust.edu.cn
 #define ONE_SHOT_MUTLI_PLANE 4
 #define ONE_SHOT_READ 5
 #define ONE_SHOT_READ_MUTLI_PLANE 6
+#define SOML_READ 7
 
 //advanced command
 #define AD_MUTLIPLANE  1  //mutli plane 
@@ -78,6 +79,7 @@ Zuo Lu				2018/02/07        2.0			The release version 									lzuo@hust.edu.cn
 #define AD_ONESHOT_PROGRAM 4  //one shot program ,used in mutli plane and single plane program operation
 #define AD_ONESHOT_READ 8     //one shot read ,used in mutli plane and single plane program operation
 #define AD_ERASE_SUSPEND_RESUME 16  //erase_suspend/resume,used in erase operation
+#define AD_SOML_READ 32
 
 #define READ 1
 #define WRITE 0
@@ -419,6 +421,7 @@ struct page_info{                      //lpn records the physical page stored in
 	int free_state;                    //each bit indicates the subpage is free or occupted. 1 indicates that the bit is free and 0 indicates that the bit is used
 	unsigned int lpn;                 
 	unsigned int written_count;        //Record the number of times the page was written
+	int compress_data_state;
 };
 
 
@@ -511,7 +514,7 @@ struct sub_request{
 	int64_t current_time;
 	unsigned int next_state;
 	int64_t next_state_predict_time;
-	 unsigned int state;              //The requested sector status bit
+	unsigned int state;              //The requested sector status bit
 
 	int64_t begin_time;               //Sub request start time
 	int64_t complete_time;            //Record the processing time of the sub-request, the time that the data is actually written or read out
@@ -526,6 +529,7 @@ struct sub_request{
 	unsigned int mutliplane_flag;
 	unsigned int oneshot_flag;
 	unsigned int oneshot_mutliplane_flag;
+	unsigned int soml_read_flag;
 
 	//suspend
 	unsigned int suspend_req_flag;
@@ -552,6 +556,8 @@ struct parameter_value{
 
 	float comp_ratio;
 	float comp_std_dev;
+
+	unsigned int BD_number; // block decoder number
 
 	unsigned int ers_limit;         //Record the number of erasable blocks per block
 	int address_mapping;            //Record the type of mapping,1��page��2��block��3��fast

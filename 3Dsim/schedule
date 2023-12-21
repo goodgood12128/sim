@@ -52,32 +52,132 @@ make_aged
     有问题
 simulate
     get_requests
+        得到请求之后插入ssd->request_queue
+        0: 到了trace尾部
+        1: 添加请求到ssd->request_queue
+        -1:没有添加请求到ssd->request_queue
     buffer_management/no_buffer_distribute
         no_buffer_distribute 有问题
+        从ssd->request_work（ssd->request_queue最近一个请求）中得到请求
         check_w_buff
+            未命中，去flash上读；完全命中；部分命中（命中部分在buffer，其他去flash读）
+            需要去flash读部分（creat_sub_request）
+            将command_buffer->buffer_tail的子请求sub_req挂载在总请求req上，为请求的执行完成做准备
+            在读操作的情况下，先要预先判断读子请求队列ssd->channel_head[loc->channel].subs_r_head中是否有与这个子请求相同的，有的话，新子请求就不必再执行了，将新的子请求直接赋为完成；没有则要把子请求插入到对应的channel队列   
         insert2buffer
+            按照逻辑页面地址在dram空间ssd->dram->buffer查找是否命中，三种情况：完全命中、部分命中和不命中
+                将新的节点设置为dram的buffer_head
+                DRAM空间是以sector为单位管理的，如果写入数据超过了DRAM最大容量，需要将dram的buffer_tail的数据写入到flash中（distribute2_command_buffer），直到空余空间可以写入新请求数据
+                    需要根据lpn和分配方式进行*allocation_method
+                        决定command写入的buffer为ssd->dram->command_buffer(支持高级命令的buffer)还是ssd->dram->static_die_buffer
+                        并且按照分配方式决定请求写入的channel、chip、plane、die
+                        按照分配方式决定请求挂载在channel上还是ssd上
+                    然后根据lpn进行insert2_command_buffer
+                        在command写入的buffer查找是否有重复的请求，三种情况：完全命中、部分命中和不命中
+                        生成一个buff_cmd_node,根据这个页的情况分别赋值给各个成员，并且添加到队首
+                        如果缓存已满，此时发生flush操作，将缓存的内存一次性flush到闪存上
+                            （creat_sub_request）
+                            将command_buffer->buffer_tail的子请求sub_req挂载在总请求req上，为请求的执行完成做准备
+                            写请求的情况下，就需要利用到函数allocate_location(ssd ,sub)来处理静态分配和动态分配
+                                判断是否会产生更新写操作，更新写操作要先读(更新channel的subs_r队列)后写
+                                按照不同的分配策略，进行分配allocation_method，然后根据mount_flag, 选择挂载在channel上还是ssd的写请求队列
     process
         gc
         services_2_r_read
-            find_read_sub_request（CHIP_READ_BUSY）
-            go_one_step 当前状态是SR_R_READ下一个阶段是SR_R_DATA_TRANSFER
+            当前CHIP_READ_BUSY？？，find_read_sub_request从ssd->channel_head[channel].subs_r_head找到SR_R_READ的子请求（*需要修改）
+                按照ONE_SHOT_READ_MUTLI_PLANE、ONE_SHOT_READ、MUTLI_PLANE、NORMAL的顺序找读子请求并执行
+            go_one_step 当前状态是SR_R_READ下一个阶段是SR_R_DATA_TRANSFER（*需要修改）
+                NORMAL、ONE_SHOT_READ_MUTLI_PLANE、ONE_SHOT_READ、MUTLI_PLANE、AD_HALFPAGE_READ
+                相同page在不同plane中的数据不同，压缩比不同，需要传输的时间不一样
         services_2_r_complete
-            在channel级别查找未结束的sub request并挂载到channel_head->subs_r_tail中
-        services_2_r_wait
+            在channel级别查找未结束的sub request（SR_COMPLETE），从subs_r_head中移除并挂载到channel_head->subs_r_tail中
+        services_2_r_wait   
             resume_erase_operation
-            find_r_wait_sub_request
+            find_r_wait_sub_request 
+                这里的调度是为队列subs_r_head第一个请求按照操作的优先级找到当前状态为SR_WAIT的子请求集合
+                    如果读请求个数很多，每次匹配最近入队的请求，那中间的请求等待的时间会很长？
+                    应该综合考虑请求等待时间以及并行度和单次读延迟？
             go_one_step 当前状态是SR_R_C_A_TRANSFER下一个阶段是SR_R_READ
+                在SR_R_C_A_TRANSFER阶段会给子请求赋予读类型（NORMAL、ONE_SHOT_READ_MUTLI_PLANE、ONE_SHOT_READ、MUTLI_PLANE、AD_HALFPAGE_READ）
         services_2_r_data_trans
             find_read_sub_request（CHIP_DATA_TRANSFER）
             go_one_step 当前状态是SR_R_DATA_TRANSFER下一个阶段是SR_COMPLETE
+                （需要修改数据传输的数据）
         services_2_write
             DYNAMIC_ALLOCATION or STATIC_ALLOCATION or HYBRID_ALLOCATION
                 dynamic_advanced_process（CHIP_IDLE）
                     service_advance_command or get_ppn_for_normal_command
-                        get_ppn_for_advanced_commands
+                        get_ppn_for_advanced_commands 
+                            ONE_SHOT_MUTLI_PLANE
+                                find_level_page (*需要修改)找到不同die中相同偏移量的page以执行multi plane操作（原本是一次调用multi plane并行写入一个页面，现在一次调用find_level_WL，一次调用写入3个页面）
+                                    先find_active_block 
+                                    判断所有的page是否相等，如果相等，执行flash_page_state_modify（*需要修改）将原本一次修改一个页面的映射关系改为一次修改一个WL对应的三个页面的映射关系
+                                    如果不相等，贪婪的使用，将所有的page向最大的page靠近
+                            ONE_SHOT
+                                get_ppn
+                            compute_serve_time
+                        get_ppn_for_normal_command
+    trace_output
+        将ssd->request_queue中执行完的请求释放
 statistic_output
 
-请求会被划分为page然后写入，从dram中
+请求会被划分为page然后写入，从dram中以页面为单位写入，flush到ssd中也是以page为单位的
+首先，读取的粒度和压缩的粒度相同，是按照请求的大小进行压缩还是按照分页的大小进行压缩；
+    按照分页的大小进行压缩
+齐次，压缩对外提供逻辑地址空间是否需要变化
+
+
+CRRC的方法对小的读取效果会很差
+
+
+读性能优化：
+    one-shot-multi-plane 3*tR*0.8
+    one-shot-read 3*tR*0.8
+    multi-plane tR
+    normal tR
+    half-page 0.5*tR
+CRRC读延迟增加原因：
+    一则是没有了half-page read、one-shot-read、one-shot-multi-plane read，CRRC只支持multiplane和normal
+    二则加了压缩解压延迟
+    三则需要读三个页面才能读出数据
+
+有问题，原本代码中ONE_SHOT_READ的延迟为tR*0.8；
+
+
+
+需要搞清楚的问题：
+读操作为多个充电时间、评价时间、放电时间，这个时间和施加的电压有关吗？
+multi-plane的电源如何如何充电的？？？
+
+
+本周任务：
+debug完成 
+    猜测普通写功能有影响，包括pre process和正常写
+        service_advance_command中请求数目不足时会按一个页面写入
+            两种方法，直接禁用（采用这个）or写入空的
+            get_ppn_for_advanced_commands中ONE_SHOT会调用get_ppn
+        pre process的写入是写一个页面 get_ppn_for_pre_process（添加了压缩后的数据大小）
+        正常写也是一次写一个页面 get_ppn_for_normal_command -> get_ppn -> find_active_blocks 去掉一个
+        每次process过程 
+        find_level_WL中page偏移地址不一致没有修改（现在修改了）；谁用了get_ppn
+        还不支持one-shot-read以及multi-plane-oneshot-read
+加上压缩解压延迟
+添加SOML功能, 能否进行multi plane操作
+    首先，soml实现细节以及限定条件
+    其次，independent multi-plane？？？
+
+简单作下PPT
+
+
+今天的目标：
+首先，明确现在已经实现的代码部分以及现在可以初步进行的测试
+    现在的读功能可以实现normal读以及multi-plane操作
+    现在的物理地址分配方法包括：
+        
+其次，确定之后需要实现什么
+
+
+
 
 
             

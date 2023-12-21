@@ -1,10 +1,11 @@
 input_directory="/home/zmr/sim/4_data/512M/public/"
-output_directory="/home/zmr/3Dsim/out/"
+output_directory="/home/zmr/3Dsim/noChangeOut/"
 
 for file in "$input_directory"*; do
     filename=$file
-    output_file="$output_directory$(basename "$file")_statistic.dat"
+    statisticfilename="$output_directory$(basename "$file")_TDA_ex.dat"
+    outputfilename="output_directory$(basename "$file")_statistic.dat"
 
-    ./My3Dsim -t "$filename" -o "$output_file"
+    ./My3Dsim -t "$filename" -s "$statisticfilename" -o "$outputfilename"
 done
 

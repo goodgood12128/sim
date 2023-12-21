@@ -160,9 +160,14 @@ struct ssd_info *pre_process_page(struct ssd_info *ssd)
 					location = find_location(ssd, ppn);
 					ssd->pre_all_write++;
 					ssd->dram->map->map_entry[lpn].pn = ppn;
-					ssd->dram->map->map_entry[lpn].state = state;   
+					ssd->dram->map->map_entry[lpn].state = state;
+					double compress_ratio = generate_normal_random(ssd->parameter->comp_ratio, ssd->parameter->comp_std_dev);
+					int compress_size=(int)ssd->parameter->page_capacity*compress_ratio/3+1;
+					int compressed_state = 1;
+					if(compress_size > ssd->parameter->subpage_capacity) compressed_state=2; 
 					ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].pre_write_count++;
 					ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].lpn = lpn;
+					ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].compress_data_state = compressed_state;
 					ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].valid_state = ssd->dram->map->map_entry[lpn].state;
 					ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].free_state = ((~ssd->dram->map->map_entry[lpn].state)&full_page);
 				
@@ -176,6 +181,12 @@ struct ssd_info *pre_process_page(struct ssd_info *ssd)
 					ssd->dram->map->map_entry[lpn].state |= state;
 					ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].valid_state = ssd->dram->map->map_entry[lpn].state;
 					ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].free_state = ((~ssd->dram->map->map_entry[lpn].state)&full_page);
+
+					double compress_ratio = generate_normal_random(ssd->parameter->comp_ratio, ssd->parameter->comp_std_dev);
+					int compress_size=(int)ssd->parameter->page_capacity*compress_ratio/3+1;
+					int compressed_state = 1;
+					if(compress_size > ssd->parameter->subpage_capacity) compressed_state=2;
+					ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].compress_data_state = compressed_state;
 
 					free(location);
 					location = NULL;
@@ -251,7 +262,7 @@ struct allocation_info* pre_process_allocation(struct ssd_info *ssd, unsigned in
 
 			if (ssd->parameter->flash_mode == TLC_MODE)
 			{
-				if (ssd->page_count % PAGE_INDEX == 0)                                      //tlc模式下，首先写同个die的三个页，写满了再去写另外的plane
+				if (ssd->page_count % PAGE_INDEX == 0)       //tlc模式下，首先写同个die的三个页，写满了再去写另外的plane
 				{
 					ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
 					ssd->page_count = 0;
@@ -447,6 +458,7 @@ unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lpn)
 ****************************************************************************************************/
 struct ssd_info *get_ppn(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane, struct sub_request *sub)
 {
+	printf("get_ppn\n");
 	int old_ppn = -1;
 	unsigned int ppn, lpn, full_page;
 	unsigned int active_block;
@@ -491,7 +503,7 @@ struct ssd_info *get_ppn(struct ssd_info *ssd, unsigned int channel, unsigned in
 	page = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].last_write_page; 
 
 
-	if (ssd->dram->map->map_entry[lpn].state == 0)                                       /*this is the first logical page*/
+	if (ssd->dram->map->map_entry[lpn].state == 0)    /*this is the first logical page*/
 	{
 		if (ssd->dram->map->map_entry[lpn].pn != 0)
 		{
@@ -501,7 +513,7 @@ struct ssd_info *get_ppn(struct ssd_info *ssd, unsigned int channel, unsigned in
 		ssd->dram->map->map_entry[lpn].pn = find_ppn(ssd, channel, chip, die, plane, block, page);
 		ssd->dram->map->map_entry[lpn].state = sub->state;
 	}
-	else                                                                            /*This logical page has been updated, and the original page needs to be invalidated*/
+	else  /*This logical page has been updated, and the original page needs to be invalidated*/
 	{
 		ppn = ssd->dram->map->map_entry[lpn].pn;
 		location = find_location(ssd, ppn);
@@ -546,7 +558,7 @@ struct ssd_info *get_ppn(struct ssd_info *ssd, unsigned int channel, unsigned in
 		ssd->dram->map->map_entry[lpn].pn = find_ppn(ssd, channel, chip, die, plane, block, page);
 		ssd->dram->map->map_entry[lpn].state = (ssd->dram->map->map_entry[lpn].state | sub->state);
 	}
-
+	// printf("c %d %d %d %d %d %d %d\n",channel, chip, die, plane, block, page, ssd->dram->map->map_entry[lpn].pn);
 
 	sub->ppn = ssd->dram->map->map_entry[lpn].pn;                                      /*Modify the sub number request ppn, location and other variables*/
 	sub->location->channel = channel;
@@ -691,6 +703,7 @@ struct local *find_location(struct ssd_info *ssd, unsigned int ppn)
 Status get_ppn_for_normal_command(struct ssd_info * ssd, unsigned int channel, unsigned int chip, struct sub_request * sub)
 {
 	unsigned int die, plane;
+	printf("get_ppn_for_normal_command\n");
 
 	if (sub == NULL)
 	{
@@ -787,44 +800,59 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 	//如果是one shot mutli plane的情况，这里就要分superpage还是mutli plane优先
 	if (command == ONE_SHOT_MUTLI_PLANE)
 	{
-		mutli_subs = (struct sub_request **)malloc(ssd->parameter->plane_die * sizeof(struct sub_request *));
+		mutli_subs = (struct sub_request **)malloc(ssd->parameter->plane_die*PAGE_INDEX* sizeof(struct sub_request *));
 		//plane>superpage:024/135
 		if (ssd->parameter->static_allocation == PLANE_STATIC_ALLOCATION || ssd->parameter->static_allocation == CHANNEL_PLANE_STATIC_ALLOCATION )
 		{
-			for (i = 0; i < PAGE_INDEX; i++)
-			{
-				for (j = 0; j < ssd->parameter->plane_die; j++)
-				{
-					if (i + k > subs_count)
-					{
-						printf("subs_count distribute error\n");
-						getchar();
-					}
-					mutli_subs[j] = subs[j + k];
+			// for (i = 0; i < PAGE_INDEX; i++)
+			// {
+			// 	for (j = 0; j < ssd->parameter->plane_die; j++)
+			// 	{
+			// 		if (i + k > subs_count)
+			// 		{
+			// 			printf("subs_count distribute error\n");
+			// 			getchar();
+			// 		}
+			// 		mutli_subs[j] = subs[j + k];
+			// 	}
+			// 	//进行mutli plane的操作
+			// 	find_level_page(ssd, channel, chip, aim_die, mutli_subs, ssd->parameter->plane_die);
+			// 	k = k + ssd->parameter->plane_die;
+			// }
+
+			for(i=0;i<ssd->parameter->plane_die;i++){
+				for(j=0;j<PAGE_INDEX;j++){
+					mutli_subs[i*PAGE_INDEX+j]=subs[j*ssd->parameter->plane_die+i];
 				}
-				//进行mutli plane的操作
-				find_level_page(ssd, channel, chip, aim_die, mutli_subs, ssd->parameter->plane_die);
-				k = k + ssd->parameter->plane_die;
 			}
+			//进行mutli plane的操作
+			find_level_WL(ssd, channel, chip, aim_die, mutli_subs, ssd->parameter->plane_die*PAGE_INDEX);
+
 		}//superpage>plane;012/345
 		else if (ssd->parameter->static_allocation == SUPERPAGE_STATIC_ALLOCATION || ssd->parameter->static_allocation == CHANNEL_SUPERPAGE_STATIC_ALLOCATION)
 		{
-			for (i = 0; i < PAGE_INDEX; i++)
+			// for (i = 0; i < PAGE_INDEX; i++)
+			// {
+			// 	k = 0;
+			// 	for (j = 0; j < ssd->parameter->plane_die; j++)
+			// 	{
+			// 		if (i + k > subs_count)
+			// 		{
+			// 			printf("subs_count distribute error\n");
+			// 			getchar();
+			// 		}
+			// 		mutli_subs[j] = subs[i + k];
+			// 		k = k + PAGE_INDEX;
+			// 	}
+			// 	//进行mutli plane的操作
+			// 	find_level_page(ssd, channel, chip, aim_die, mutli_subs, ssd->parameter->plane_die);
+			// }
+			for (i = 0; i < PAGE_INDEX * ssd->parameter->plane_die; i++)
 			{
-				k = 0;
-				for (j = 0; j < ssd->parameter->plane_die; j++)
-				{
-					if (i + k > subs_count)
-					{
-						printf("subs_count distribute error\n");
-						getchar();
-					}
-					mutli_subs[j] = subs[i + k];
-					k = k + PAGE_INDEX;
-				}
-				//进行mutli plane的操作
-				find_level_page(ssd, channel, chip, aim_die, mutli_subs, ssd->parameter->plane_die);
+				mutli_subs[i]=subs[i];
 			}
+			//进行mutli plane的操作
+			find_level_WL(ssd, channel, chip, aim_die, mutli_subs, ssd->parameter->plane_die*PAGE_INDEX);
 		}
 
 		valid_subs_count = subs_count;
@@ -835,7 +863,7 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 			ssd->channel_head[channel].chip_head[chip].token = (aim_die + 1) % ssd->parameter->die_chip;
 
 		//free mutli_subs
-		for (i = 0; i < ssd->parameter->plane_die; i++)
+		for (i = 0; i < ssd->parameter->plane_die*PAGE_INDEX; i++)
 			mutli_subs[i] = NULL;
 		free(mutli_subs);
 		mutli_subs = NULL;
@@ -872,6 +900,7 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 	}
 	else if (command == ONE_SHOT)
 	{
+		printf("command == ONE_SHOT\n");
 		for (i = 0; i < subs_count; i++)
 			get_ppn(ssd, channel, chip, aim_die, aim_plane, subs[i]);
 
@@ -1498,16 +1527,60 @@ int delete_gc_node(struct ssd_info *ssd, unsigned int channel, struct gc_operati
 *Function function is to find active fast, there should be only one active block for 
 *each plane, only the active block in order to operate
 ***************************************************************************************/
-Status  find_active_block(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane)
+Status find_active_block_w_Wl_align(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane)
 {
 	unsigned int active_block = 0;
-	unsigned int free_page_num = 0;
+	unsigned int free_page_num = 0, last_write_page = 0,new_last_write_page=0;
 	unsigned int count = 0;
 	//	int i, j, k, p, t;
 
 	active_block = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].active_block;
 	free_page_num = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].free_page_num;
-	//last_write_page=ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].free_page_num;
+	last_write_page=ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].last_write_page;
+	if(last_write_page % 3 !=0){
+		new_last_write_page = (last_write_page/3+1)*3;
+		ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].free_page_num -= (new_last_write_page-last_write_page);
+		ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].last_write_page = new_last_write_page;
+	}
+	while ((free_page_num <= 2) && (count<ssd->parameter->block_plane))
+	{
+		active_block = (active_block + 1) % ssd->parameter->block_plane;
+		free_page_num = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].free_page_num;
+		last_write_page=ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].last_write_page;
+		count++;
+		if(last_write_page % 3 !=0){
+			new_last_write_page = (last_write_page/3+1)*3;
+			ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].free_page_num -= (new_last_write_page-last_write_page);
+			ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].last_write_page = new_last_write_page;
+		}
+	}
+
+	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].active_block = active_block;
+
+	if (count<ssd->parameter->block_plane)
+	{
+		return SUCCESS;
+	}
+	else
+	{
+		return FAILURE;
+	}
+}
+
+
+
+/**************************************************************************************
+*Function function is to find active fast, there should be only one active block for 
+*each plane, only the active block in order to operate
+***************************************************************************************/
+Status find_active_block(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane)
+{
+	unsigned int active_block = 0;
+	unsigned int free_page_num = 0;
+	unsigned int count = 0;
+
+	active_block = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].active_block;
+	free_page_num = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].free_page_num;
 	while ((free_page_num == 0) && (count<ssd->parameter->block_plane))
 	{
 		active_block = (active_block + 1) % ssd->parameter->block_plane;
