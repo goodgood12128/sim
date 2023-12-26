@@ -1,5 +1,5 @@
-input_directory="/home/zmr/sim/4_data/512M/public/"
-output_directory="/home/zmr/3Dsim/noChangeOut/"
+input_directory="/home/zmr/sim/4_data/512M/user/"
+output_directory="/home/zmr/3Dsim/just_normal_and_multi-plane/static_allocation_3/"
 
 for file in "$input_directory"*; do
     filename=$file

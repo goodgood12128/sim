@@ -789,6 +789,7 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 		//验证subs的有效性
 		for (i = 0; i < subs_count; i++)
 		{
+			if(subs[i]->lpn == -1) break;
 			if (subs[i]->location->die != aim_die)
 			{
 				printf("Error ,aim_die match failed\n");

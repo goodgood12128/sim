@@ -64,7 +64,7 @@ simulate
             需要去flash读部分（creat_sub_request）
             将command_buffer->buffer_tail的子请求sub_req挂载在总请求req上，为请求的执行完成做准备
             在读操作的情况下，先要预先判断读子请求队列ssd->channel_head[loc->channel].subs_r_head中是否有与这个子请求相同的，有的话，新子请求就不必再执行了，将新的子请求直接赋为完成；没有则要把子请求插入到对应的channel队列   
-        insert2buffer
+        insert2buffer 查找数据在DRAM中是否存在，不在或者部分不存在都需要把数据插入到DRAM中；但当DRAM空间不足则需要将DRAM中数据写入到flash中，具体操作是把写入请求写入到对应的command buffer中；当然这个过程也是先检查是否有重复，重复则更新，不重复则插入；当command buffer满了则将command buffer中的数据一次性写入到flash中；写入flash时需要先检查该逻辑地址是否写入过，若有则需要先读再写入，否则直接写入
             按照逻辑页面地址在dram空间ssd->dram->buffer查找是否命中，三种情况：完全命中、部分命中和不命中
                 将新的节点设置为dram的buffer_head
                 DRAM空间是以sector为单位管理的，如果写入数据超过了DRAM最大容量，需要将dram的buffer_tail的数据写入到flash中（distribute2_command_buffer），直到空余空间可以写入新请求数据
@@ -72,6 +72,20 @@ simulate
                         决定command写入的buffer为ssd->dram->command_buffer(支持高级命令的buffer)还是ssd->dram->static_die_buffer
                         并且按照分配方式决定请求写入的channel、chip、plane、die
                         按照分配方式决定请求挂载在channel上还是ssd上
+                            混合分配
+                                动态负载感知（注释掉了）
+                                静态负载感知
+                                    根据逻辑地址在DRAM中读写请求次数；
+                                    读多：aim_command_buffer（static_die_buffer）；按照stripe的方式更新
+                                    写多：aim_command_buffer（command_buffer）；按照聚集的方式更新？逻辑页面地址 mount type是什么？
+                            静态分配
+                                请求分配的物理地址只跟逻辑地址相关，按照逻辑地址计算分配到的channel、chip以及die
+                                并计算请求分配到的buffer（static_die_buffer），mount_flag为CHANNEL_MOUNT
+                            动态分配
+                                stripe：aim_command_buffer（static_die_buffer）；全局die编码，当每个die的plane写满之后更新die编码（每个新的请求plane count都会增加，即plane计数是以页面为单位的）
+                                ospa ：aim_command_buffer（static_die_buffer）；选择写入的die位置，如果有die对应的命令队列为空则选择该die写入，否则遍历所有的die_buffer并计算欧式距离，返回对应die中最小的欧式距离
+                                poll ：aim_command_buffer（static_die_buffer）；首先获取轮询的分配的令牌，重新轮询到一个新的die上，计算当前aim-die的距离是否等于1，连续的两个页分配到相同的die缓存上
+                                other ：aim_command_buffer（command_buffer）
                     然后根据lpn进行insert2_command_buffer
                         在command写入的buffer查找是否有重复的请求，三种情况：完全命中、部分命中和不命中
                         生成一个buff_cmd_node,根据这个页的情况分别赋值给各个成员，并且添加到队首
@@ -80,7 +94,12 @@ simulate
                             将command_buffer->buffer_tail的子请求sub_req挂载在总请求req上，为请求的执行完成做准备
                             写请求的情况下，就需要利用到函数allocate_location(ssd ,sub)来处理静态分配和动态分配
                                 判断是否会产生更新写操作，更新写操作要先读(更新channel的subs_r队列)后写
-                                按照不同的分配策略，进行分配allocation_method，然后根据mount_flag, 选择挂载在channel上还是ssd的写请求队列
+                                    ？？为什么当更新产生的读请求在channel的读队列则将请求的当前时间设置为SSD的当前时间（对这个时间存疑），并且将读完成时间设置为读一次DRAM的时间
+                                按照不同的分配策略，进行分配allocation_method
+                                    混合分配 mount_type 0:000；1:010；2:100:3:110；4:-1-1-1
+                                    静态 PLANE_STATIC_ALLOCATION/SUPERPAGE_STATIC_ALLOCATION：
+                                        CHANNEL_PLANE_STATIC_ALLOCATION/CHANNEL_SUPERPAGE_STATIC_ALLOCATION：
+                                然后根据mount_flag, 选择挂载在channel上还是ssd的写请求队列
     process
         gc
         services_2_r_read
@@ -90,11 +109,11 @@ simulate
                 NORMAL、ONE_SHOT_READ_MUTLI_PLANE、ONE_SHOT_READ、MUTLI_PLANE、AD_HALFPAGE_READ
                 相同page在不同plane中的数据不同，压缩比不同，需要传输的时间不一样
         services_2_r_complete
-            在channel级别查找未结束的sub request（SR_COMPLETE），从subs_r_head中移除并挂载到channel_head->subs_r_tail中
+            在channel级别查找结束的sub request（SR_COMPLETE），从subs_r_head中移除并挂载到channel_head->subs_r_tail中
         services_2_r_wait   
             resume_erase_operation
             find_r_wait_sub_request 
-                这里的调度是为队列subs_r_head第一个请求按照操作的优先级找到当前状态为SR_WAIT的子请求集合
+                这里的调度是为队列subs_r_head第一个请求按照操作的优先级找到当前状态为SR_WAIT的子请求集合(find_r_wait_sub_request)
                     如果读请求个数很多，每次匹配最近入队的请求，那中间的请求等待的时间会很长？
                     应该综合考虑请求等待时间以及并行度和单次读延迟？
             go_one_step 当前状态是SR_R_C_A_TRANSFER下一个阶段是SR_R_READ
@@ -103,9 +122,13 @@ simulate
             find_read_sub_request（CHIP_DATA_TRANSFER）
             go_one_step 当前状态是SR_R_DATA_TRANSFER下一个阶段是SR_COMPLETE
                 （需要修改数据传输的数据）
-        services_2_write
-            DYNAMIC_ALLOCATION or STATIC_ALLOCATION or HYBRID_ALLOCATION
+        services_2_write 在channel级别
+            DYNAMIC_ALLOCATION or HYBRID_ALLOCATION：从channel对应的token开始遍历channel中的每个chip
+            STATIC_ALLOCATION：按照chip的编号0到N遍历channel中的每个chip，当前chip为空闲，则执行写命令
                 dynamic_advanced_process（CHIP_IDLE）
+                遍历请求链上当前空闲的请求
+                如果是静态分配，当前请求属于同一个channel,chip,die则保留
+                如果是动态分配，保留
                     service_advance_command or get_ppn_for_normal_command
                         get_ppn_for_advanced_commands 
                             ONE_SHOT_MUTLI_PLANE
@@ -169,12 +192,26 @@ debug完成
 简单作下PPT
 
 
-今天的目标：
-首先，明确现在已经实现的代码部分以及现在可以初步进行的测试
-    现在的读功能可以实现normal读以及multi-plane操作
-    现在的物理地址分配方法包括：
-        
-其次，确定之后需要实现什么
+原始代码问题：
+fcl.c中ssd->one_shot_read_count加了两次，一次在services_2_r_data_trans一次在go-one-step
+
+问题：
+1、查看了完全顺序读的负载
+read request average size:     95.899559 = 16*6
+512M_16KB_random_R.ascii 间隔平均延迟: 5.00886e+06 ns 5008.86 us, Percentile: 2000,000 5000,000 8000,000 10000,000
+现象：
+总共299684个读的子请求
+huffman:OSR 31182；MP 18285；MP-OSR 29；normal 169394，L=713766
+baseline:OSR 27889；MP 12249；MP-OSR 13；normal 191441，L=442175
+原因1：MP-OSR数目太少，仍然存在很多normal读，猜测是队列的请求数目太少
+解决方法1:
+当channel级别的读请求个数少于3则不执行请求
+huffman:OSR 78435；MP 1668；MP-OSR 9700；normal 2843，L=4207973
+当channel级别的读请求个数少于6则不执行请求
+huffman:OSR 4286；MP 1700；MP-OSR 46839；normal 2392，L=7290381
+结果不理想,由于读延迟即使是一次性读 为了凑齐高级命令子请求等待的时间长；
+请求平均可以划分为6个子请求，那为什么会等待时间长，
+原因2:
 
 
 

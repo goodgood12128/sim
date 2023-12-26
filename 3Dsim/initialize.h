@@ -244,6 +244,7 @@ struct ssd_info{
 	unsigned long read_count;
 	unsigned long update_read_count;      //Record the number of updates read
 	unsigned long gc_read_count;		  //Record gc caused by the read operation
+	unsigned long normal_read_count;
 	unsigned long half_page_read_count;   //Recond the number of half page read operation
 	unsigned long one_shot_read_count;	  //Recond the number of one shot read operation
 	unsigned long one_shot_mutli_plane_count;//Record the number of one shot mutli plane read operation

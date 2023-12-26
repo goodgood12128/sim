@@ -383,7 +383,6 @@ struct ssd_info *process(struct ssd_info *ssd)
 	**********************************************************/
 	time = ssd->current_time;
 	services_2_r_read(ssd);
-
 	services_2_r_complete(ssd);
 
 	//然后执行写操作
@@ -486,11 +485,12 @@ void trace_output(struct ssd_info* ssd){
 		flag = 1;
 		start_time = 0;
 		end_time = 0;
-		// printf("%d\n", req->response_time);
+		// printf("req->response_tim %lld ope %d\n", req->response_time, req->operation);
 		if (req->response_time != 0)
 		{
 			// fprintf(ssd->outputfile, "%16lld %10u %6u %2u %16lld %16lld %16lld\n", req->time, req->lsn, req->size, req->operation, req->begin_time, req->response_time, req->response_time - req->time);
 			// fflush(ssd->outputfile);
+			// printf("子请求完成\n");
 
 			if (req->response_time - req->begin_time == 0)
 			{
@@ -579,6 +579,7 @@ void trace_output(struct ssd_info* ssd){
 				else
 				{
 					flag = 0;
+					// printf("current_state %d next_state %d next_state_predict_time %lld current_time %lld\n", sub->current_state, sub->next_state, sub->next_state_predict_time,ssd->current_time);
 					break;
 				}
 
@@ -588,6 +589,7 @@ void trace_output(struct ssd_info* ssd){
 			{
 				// fprintf(ssd->outputfile, "%16lld %10u %6u %2u %16lld %16lld %16lld\n", req->time, req->lsn, req->size, req->operation, start_time, end_time, end_time - req->time);
 				// fflush(ssd->outputfile);
+				// printf("子请求完成\n");
 
 				if (end_time - start_time == 0)
 				{
@@ -674,6 +676,7 @@ void trace_output(struct ssd_info* ssd){
 			}
 			else
 			{
+				// printf("子请求未完成\n");
 				pre_node = req;
 				req = req->next_node;
 			}
@@ -802,6 +805,7 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->outputfile,"buffer write miss: %13d\n",ssd->dram->buffer->write_miss_hit);
 	
 	fprintf(ssd->outputfile, "update sub request count : %13d\n", ssd->update_sub_request);
+	fprintf(ssd->outputfile, "normal page read count : %13d\n", ssd->normal_read_count);
 	fprintf(ssd->outputfile, "half page read count : %13d\n", ssd->half_page_read_count);
 	fprintf(ssd->outputfile, "mutli plane one shot program count : %13d\n", ssd->mutliplane_oneshot_prog_count);
 	fprintf(ssd->outputfile, "one shot read count : %13d\n", ssd->one_shot_read_count);
