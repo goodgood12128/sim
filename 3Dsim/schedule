@@ -172,37 +172,21 @@ CRRC读延迟增加原因：
 读操作为多个充电时间、评价时间、放电时间，这个时间和施加的电压有关吗？
 multi-plane的电源如何如何充电的？？？
 
-
-本周任务：
-debug完成 
-    猜测普通写功能有影响，包括pre process和正常写
-        service_advance_command中请求数目不足时会按一个页面写入
-            两种方法，直接禁用（采用这个）or写入空的
-            get_ppn_for_advanced_commands中ONE_SHOT会调用get_ppn
-        pre process的写入是写一个页面 get_ppn_for_pre_process（添加了压缩后的数据大小）
-        正常写也是一次写一个页面 get_ppn_for_normal_command -> get_ppn -> find_active_blocks 去掉一个
-        每次process过程 
-        find_level_WL中page偏移地址不一致没有修改（现在修改了）；谁用了get_ppn
-        还不支持one-shot-read以及multi-plane-oneshot-read
-加上压缩解压延迟
-添加SOML功能, 能否进行multi plane操作
-    首先，soml实现细节以及限定条件
-    其次，independent multi-plane？？？
-
-简单作下PPT
-
-
 原始代码问题：
 fcl.c中ssd->one_shot_read_count加了两次，一次在services_2_r_data_trans一次在go-one-step
 
 问题：
 1、查看了完全顺序读的负载
-read request average size:     95.899559 = 16*6
+read request average size:     95.899559 = 16*6 sectors =16*3 KB
 512M_16KB_random_R.ascii 间隔平均延迟: 5.00886e+06 ns 5008.86 us, Percentile: 2000,000 5000,000 8000,000 10000,000
 现象：
 总共299684个读的子请求
-huffman:OSR 31182；MP 18285；MP-OSR 29；normal 169394，L=713766
-baseline:OSR 27889；MP 12249；MP-OSR 13；normal 191441，L=442175
+huffman Static 1:OSR 31182；MP 18285；MP-OSR 29；normal 169394，L=713766
+baseline Static 0:OSR 15780；MP 56048；MP-OSR 0；normal 140248，L=412174
+baseline Static 1:OSR 27889；MP 12249；MP-OSR 13；normal 191441，L=442175
+baseline Static 2:OSR 35；MP 7357；MP-OSR 0；normal 284865，L=265836（通过channel级别的并行读取减少延迟）
+baseline Static 3:OSR 21；MP 3；MP-OSR 0；normal 299615，L=272036
+分析负载：请求的平均大小为3个页面，且平均延迟间隔大（远超过请求读取的延迟）
 原因1：MP-OSR数目太少，仍然存在很多normal读，猜测是队列的请求数目太少
 解决方法1:
 当channel级别的读请求个数少于3则不执行请求
@@ -210,11 +194,73 @@ huffman:OSR 78435；MP 1668；MP-OSR 9700；normal 2843，L=4207973
 当channel级别的读请求个数少于6则不执行请求
 huffman:OSR 4286；MP 1700；MP-OSR 46839；normal 2392，L=7290381
 结果不理想,由于读延迟即使是一次性读 为了凑齐高级命令子请求等待的时间长；
-请求平均可以划分为6个子请求，那为什么会等待时间长，
-原因2:
+请求平均可以划分为6个子请求，那为什么会等待时间长？
+
+对于顺序读请求：
+首先，要先明确数据确实是我想要的形式布局，即相邻的数据尽量存储在同一个plane以及同一个die中123/456，确定！
+其次，在执行读请求时，会查找包括队列的第一个子请求的多个满足同一个高级命令的多个读子请求；
+    不合理之处包括：
+    1、处理读请求时目标是处理最先到达channel的请求，按照一定优先级查找执行高级命令的子请求集合
+    当channel有请求sub channel chip die plane block pagewl pagenumber
+                   0    1       1   0   0       0   0       2
+                   1    1       1   0   1       0   0       0
+                   2    1       1   0   1       0   0       1
+                   3    1       1   0   1       0   0       2 
+    由于sub0最先到达会和plane1中的sub3一起执行multi-plane,而不是sub1、2、3一起执行OSR
+    2、读字线上的任意页面都只需要一次读OSR就行；对于Multi-plane—OSR，只要不同Plane的相同位置的WL有请求即可;
+
+    解决方法：
+    直接采用独立plane
+    在查找读请求执行时，先查找
+
+    
+另外，添加独立plane执行功能
+还有考虑预取以及读传输数据粒度的问题
+
+首先，利用一次性读的目的是为了减少读取一个页面需要占用的flash时间
+使用一次性读，全顺序读延迟 713766
+不使用一次性读 819939
+其次，由于Huffman编码采用具体的某个闪存状态组合表示数据，在读取数据时都需要对目标字线施加（N-1）次电压，
+当激活位线数目少时，读取延迟会相应减少；当激活WL对应的所有位线时，施加N-1次电压可以读出多个页面的数据；
+    我们先探索充分利用后者可以带来的好处，如何充分利用？
+    目的是减少读放大，一则可以将读出来的数据放在DRAM中，便于后续顺序读取；二则可以考虑数据布局
+
+N-LC对比原本读写的好处为：写延迟减少！读取三个页面的延迟减少！
+缺点：读取单个页面时间增加
+SOML read 延迟设定
+4KB 45us 8KB 65us 12KB 85us 16KB 99us
+
+适用场景：
+读写密集型
+    因为如果请求之间的间隔长且单个请求大小不大则通过并行能更好地提升读写性能（在不考虑GC的前提下）
+    在考虑GC的前提下，由于相邻逻辑地址的数据尽量存放在一起，所以寿命相近的数据会一起被GC，从而减少了GC对读写性能的影响
+对于纯读负载：
+    顺序读
+        在请求大(>48KB)且请求间隔较小(<270000)的负载可以充分利用OSR；否则不行
+    随机读
 
 
+本周任务：
+    了解下这个时间是如何推进的
+    1、实现IMP 
+    2、实现SOML read 
+    3、实现PR
 
+    问题：
+    IMP是否可以实现不同请求的并行操作
+    SOML read中提到的block decoder是什么？
+    目前实现的顺序是什么？
 
+    可能的动机：
+    上层的读请求在flash层可能不是完全对齐的，造成部分读请求
+    LPN 100 state 0001
+    LPN 101 state 1111
+    LPN 102 state 1100
 
+    现在处理的逻辑
+        找最早到达队列的请求执行的命令，
             
+        
+
+
+creat_sub_request的读有问题，有相同物理地址的读请求在队列中就返回了，没有修改队列请求的state；并且请求完成的时间为SSD的当前时间加上访问DRAM的时间

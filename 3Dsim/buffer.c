@@ -106,8 +106,11 @@ struct ssd_info *handle_write_buffer(struct ssd_info *ssd, struct request *req)
 	last_lpn = (req->lsn + req->size - 1) / secno_num_per_page;
 	first_lpn = req->lsn / secno_num_per_page;   //计算lpn
 
+	// printf("start\n");
 	while (lpn <= last_lpn)       //lpn值在递增
 	{
+		// printf("lpn: %d ",lpn);
+		// fflush(stdout);
 		mask = ~(0xffffffff << (ssd->parameter->subpage_page));   //掩码表示的是子页的掩码 subpage_page 一页包含4个子页 
 		state = mask;   //00001111
 		if (lpn == first_lpn)
@@ -1091,6 +1094,7 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 	if (operation == READ)
 	{
 		loc = find_location(ssd, ssd->dram->map->map_entry[lpn].pn);
+		// printf(" sub:%d %d %d %d %d %d %d\n",loc->channel, loc->chip, loc->die, loc->plane, loc->block, loc->page/3, loc->page %3);
 		sub->location = loc;
 		sub->begin_time = ssd->current_time;
 		sub->current_state = SR_WAIT;
@@ -1120,6 +1124,13 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 		}
 		if (flag == 0)                                                //�����������û�з�����ͬppn���������½���sub���뵽�����������
 		{
+			int count = 0;
+			while (state) {
+				count += state & 1;
+				state >>= 1;
+			}
+			ssd->read_state_count += count;
+			ssd->read_sub_count += 1;
 			if (ssd->channel_head[loc->channel].subs_r_tail != NULL)
 			{
 				ssd->channel_head[loc->channel].subs_r_tail->next_node = sub;          //sub����������������
@@ -1128,7 +1139,6 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 			else
 			{
 				ssd->channel_head[loc->channel].subs_r_head = sub;
-				sub->location->die;
 				ssd->channel_head[loc->channel].subs_r_tail = sub;
 			}
 		}

@@ -237,6 +237,8 @@ struct ssd_info{
 
 	int64_t write_avg;                   //Record the time to calculate the average response time for the write request
 	int64_t read_avg;                    //Record the time to calculate the average response time for the read request
+	unsigned int read_sub_count;
+	float read_state_count;
 
 	unsigned int min_lsn;
 	unsigned int max_lsn;

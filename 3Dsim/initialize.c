@@ -224,6 +224,9 @@ void initialize_statistic(struct ssd_info * ssd)
 	ssd->mutliplane_oneshot_prog_count = 0;
 	ssd->one_shot_read_count = 0;
 
+	ssd->read_request_count = 0;
+	ssd->read_state_count = 0;
+
 	/*ssd->gc_num[0] = 0;
 	ssd->gc_num[1] = 0;
 	ssd->gc_num[2] = 0;

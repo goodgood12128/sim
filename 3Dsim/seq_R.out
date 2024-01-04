@@ -116,7 +116,7 @@ the 1 channel, 1 chip, 0 die, 1 plane has :   0 erase operations,37449 read oper
 ---------------------------statistic data---------------------------
 min lsn:             0
 max lsn:        838816
-read count:        299684
+test_count99999 read_request_count99999 
 the read operation leaded by un-covered update count:             0
 the read operation leaded by gc read count:             0
 

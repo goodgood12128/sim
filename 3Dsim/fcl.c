@@ -144,7 +144,7 @@ Status services_2_r_read(struct ssd_info * ssd)
 	for (i = 0; i < ssd->parameter->channel_number; i++)                                    
 	{
 		for (j = 0; j < ssd->parameter->chip_channel[i]; j++)
-		{ // 当前状态为chip read busy时才可以写入
+		{ // 当前状态为chip read busy时才可以读？
 			if ((ssd->channel_head[i].chip_head[j].current_state == CHIP_READ_BUSY) ||
 				((ssd->channel_head[i].chip_head[j].next_state == CHIP_READ_BUSY) &&
 				(ssd->channel_head[i].chip_head[j].next_state_predict_time <= ssd->current_time)))
@@ -367,7 +367,6 @@ Status services_2_r_complete(struct ssd_info * ssd)
 					{
 						ssd->channel_head[i].subs_r_head = sub->next_node;
 						sub = sub->next_node;
-						sub->location->block;
 						p = NULL;
 					}
 					else
@@ -410,9 +409,13 @@ Status services_2_r_wait(struct ssd_info * ssd, unsigned int channel)
 	struct sub_request ** sub_place = NULL;
 	unsigned int sub_r_req_count, i ,chip;
 
-	sub_place = (struct sub_request **)malloc(ssd->parameter->plane_die * PAGE_INDEX * sizeof(struct sub_request *));
+	sub_place = (struct sub_request **)malloc(ssd->parameter->plane_die * ssd->parameter->subpage_page* PAGE_INDEX * sizeof(struct sub_request *));
+	if(sub_place == NULL){
+		printf("malloc error!\n");
+	}
 	alloc_assert(sub_place, "sub_place");
 	sub_r_req_count = 0;
+	// channel级别的多个chip并行
 	for (chip = 0; chip < ssd->parameter->chip_channel[channel]; chip++)
 	{
 		/*************************************************************************************************************************************/
@@ -449,12 +452,28 @@ Status services_2_r_wait(struct ssd_info * ssd, unsigned int channel)
 		/***************************************************************************************************************************************/
 		if (ssd->parameter->flash_mode == TLC_MODE)							 //ֻ����tlc mode �²��ܽ���one shot mutli plane read/one shot read
 		{
+			// // 支持IMP，则每个plane内部按照OSR和normal的顺序查找
+			// if ((ssd->parameter->advanced_commands&AD_ONESHOT_READ) ==  && (ssd->parameter->advanced_commands&AD_INDEPENDENT_MULTIPLANE) == AD_INDEPENDENT_MULTIPLANE)
+			// {
+			// 	sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, ONE_SHOT_READ_IMP);
+			// 	if (sub_r_req_count > 0)
+			// 	{
+			// 		go_one_step(ssd, sub_place, sub_r_req_count, SR_R_C_A_TRANSFER, ONE_SHOT_READ_IMP);
+			// 		ssd->channel_head[channel].channel_busy_flag = 1;
+			// 		continue;
+			// 	}
+			// }
+
+			// 不支持IMP，按照MP OSR、OSR、half page、normal的顺序查找
 			//�ж��Ƿ�����ø߼�����oneshot_mutliplane_read
 			if ((ssd->parameter->advanced_commands&AD_ONESHOT_READ) == AD_ONESHOT_READ && (ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE)
 			{
 				sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, ONE_SHOT_READ_MUTLI_PLANE);
 				if (sub_r_req_count == (PAGE_INDEX*ssd->parameter->plane_die))
 				{
+					for(i = sub_r_req_count;i<(ssd->parameter->plane_die * ssd->parameter->subpage_page* PAGE_INDEX);i++)
+						sub_place[i] = NULL;
+
 					go_one_step(ssd, sub_place, sub_r_req_count, SR_R_C_A_TRANSFER, ONE_SHOT_READ_MUTLI_PLANE);
 					ssd->channel_head[channel].channel_busy_flag = 1;
 					continue;
@@ -466,7 +485,7 @@ Status services_2_r_wait(struct ssd_info * ssd, unsigned int channel)
 				sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, ONE_SHOT_READ);
 				if (sub_r_req_count == PAGE_INDEX)
 				{
-					for (i = sub_r_req_count; i < (ssd->parameter->plane_die * PAGE_INDEX); i++)
+					for(i = sub_r_req_count;i<(ssd->parameter->plane_die * ssd->parameter->subpage_page* PAGE_INDEX);i++)
 						sub_place[i] = NULL;
 
 					go_one_step(ssd, sub_place, sub_r_req_count, SR_R_C_A_TRANSFER, ONE_SHOT_READ);
@@ -481,10 +500,24 @@ Status services_2_r_wait(struct ssd_info * ssd, unsigned int channel)
 			sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, MUTLI_PLANE);
 			if ((sub_r_req_count >1) && (sub_r_req_count <= ssd->parameter->plane_die))
 			{
-				for (i = sub_r_req_count; i < (ssd->parameter->plane_die * PAGE_INDEX); i++)
+				for(i = sub_r_req_count;i<(ssd->parameter->plane_die * ssd->parameter->subpage_page* PAGE_INDEX);i++)
 					sub_place[i] = NULL;
 
 				go_one_step(ssd, sub_place, sub_r_req_count, SR_R_C_A_TRANSFER, MUTLI_PLANE);
+				ssd->channel_head[channel].channel_busy_flag = 1;
+				continue;
+			}
+		}
+
+		if ((ssd->parameter->advanced_commands&AD_SOML_READ) == AD_SOML_READ)
+		{
+			sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, SOML_READ);
+			if (sub_r_req_count >1)
+			{
+				for(i = sub_r_req_count;i<(ssd->parameter->plane_die * ssd->parameter->subpage_page* PAGE_INDEX);i++)
+					sub_place[i] = NULL;
+
+				go_one_step(ssd, sub_place, sub_r_req_count, SR_R_C_A_TRANSFER, SOML_READ);
 				ssd->channel_head[channel].channel_busy_flag = 1;
 				continue;
 			}
@@ -494,7 +527,7 @@ Status services_2_r_wait(struct ssd_info * ssd, unsigned int channel)
 		sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, NORMAL);
 		if (sub_r_req_count == 1)
 		{
-			for (i = sub_r_req_count; i < (ssd->parameter->plane_die * PAGE_INDEX); i++)
+			for(i = sub_r_req_count;i<(ssd->parameter->plane_die * ssd->parameter->subpage_page* PAGE_INDEX);i++)
 				sub_place[i] = NULL;
 
 			go_one_step(ssd, sub_place, sub_r_req_count, SR_R_C_A_TRANSFER, NORMAL);
@@ -566,13 +599,15 @@ unsigned int find_r_wait_sub_request(struct ssd_info * ssd, unsigned int channel
 	i = 0;
 	sub_count = 0;
 	sub_plane_request = ssd->channel_head[channel].subs_r_head;
-	struct sub_request * sub_plane_request_tmp = ssd->channel_head[channel].subs_r_head;
-	int queue_length = 0;
-	while (sub_plane_request_tmp != NULL)
-	{
-		queue_length++;
-		sub_plane_request_tmp= sub_plane_request_tmp->next_node;
-	}
+	// struct sub_request * sub_plane_request_tmp = ssd->channel_head[channel].subs_r_head;
+	// int queue_length = 0;
+	// while (sub_plane_request_tmp != NULL)
+	// {
+	// 	// 需要满足物理地址尽量是相同channel、chip、die的同一个plane的同一个WL或者不同plane的相同位置
+	// 	printf("sub:%d %d %d %d %d %d %d\n",sub_plane_request_tmp->location->channel, sub_plane_request_tmp->location->chip, sub_plane_request_tmp->location->die, sub_plane_request_tmp->location->plane, sub_plane_request_tmp->location->block, sub_plane_request_tmp->location->page/3, sub_plane_request_tmp->location->page %3);
+	// 	queue_length++;
+	// 	sub_plane_request_tmp= sub_plane_request_tmp->next_node;
+	// }
 	// printf("queue length:%d\n", queue_length);	
 	// if ((ssd->trace_over_flag == 1 && ssd->request_work == NULL) || (ssd->parameter->warm_flash == 1 && ssd->trace_over_flag == 1 && ssd->warm_flash_cmplt == 0))
 	// {
@@ -580,6 +615,19 @@ unsigned int find_r_wait_sub_request(struct ssd_info * ssd, unsigned int channel
 	// }else{
 	// 	if(queue_length < 6) return sub_count;
 	// }
+
+	// struct sub_request **die_head = (struct sub_request **)malloc(ssd->parameter->channel_number * ssd->parameter->chip_channel[0] * ssd->parameter->die_chip * sizeof(struct sub_request *));
+	// if (command == ONE_SHOT_READ_IMP){
+		
+	// 	if (((ssd->channel_head[sub_plane_request->location->channel].chip_head[sub_plane_request->location->chip].current_state == CHIP_IDLE) ||
+	// 		((ssd->channel_head[sub_plane_request->location->channel].chip_head[sub_plane_request->location->chip].next_state == CHIP_IDLE) &&
+	// 		(ssd->channel_head[sub_plane_request->location->channel].chip_head[sub_plane_request->location->chip].next_state_predict_time <= ssd->current_time))))
+	// 	{
+			
+	// 	}
+			
+	// }
+	// free(chip_head);
 
 	while (sub_plane_request != NULL)
 	{
@@ -830,7 +878,7 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request ** subs, unsigned i
 			sub->current_time = ssd->current_time;
 			sub->current_state = SR_R_READ;
 			sub->next_state = SR_R_DATA_TRANSFER;
-			sub->next_state_predict_time = ssd->current_time + 3*ssd->parameter->time_characteristics.tR*0.8;
+			sub->next_state_predict_time = ssd->current_time + ssd->parameter->time_characteristics.tR;
 
 			ssd->read_count++;
 			ssd->normal_read_count++;
@@ -839,7 +887,7 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request ** subs, unsigned i
 			ssd->channel_head[location->channel].chip_head[location->chip].current_state = CHIP_READ_BUSY;
 			ssd->channel_head[location->channel].chip_head[location->chip].current_time = ssd->current_time;
 			ssd->channel_head[location->channel].chip_head[location->chip].next_state = CHIP_DATA_TRANSFER;
-			ssd->channel_head[location->channel].chip_head[location->chip].next_state_predict_time = ssd->current_time + 3*ssd->parameter->time_characteristics.tR*0.8;
+			ssd->channel_head[location->channel].chip_head[location->chip].next_state_predict_time = ssd->current_time + ssd->parameter->time_characteristics.tR;
 			
 		
 			break;
@@ -855,10 +903,10 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request ** subs, unsigned i
 			sub->current_time = ssd->current_time;
 			sub->current_state = SR_R_DATA_TRANSFER;
 			sub->next_state = SR_COMPLETE;
-			int compress_size = ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].compress_data_state;
+			// int compress_size = ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].compress_data_state;
 			// printf("compress_size%d\n",compress_size); 
-			// sub->next_state_predict_time = ssd->current_time + (sub->size*ssd->parameter->subpage_capacity)*ssd->parameter->time_characteristics.tRC;
-			sub->next_state_predict_time = ssd->current_time + (compress_size*3*ssd->parameter->subpage_capacity)*ssd->parameter->time_characteristics.tRC;
+			sub->next_state_predict_time = ssd->current_time + (sub->size*ssd->parameter->subpage_capacity)*ssd->parameter->time_characteristics.tRC;
+			// sub->next_state_predict_time = ssd->current_time + (compress_size*3*ssd->parameter->subpage_capacity)*ssd->parameter->time_characteristics.tRC;
 			sub->complete_time = sub->next_state_predict_time;
 
 			ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].add_reg_ppn = -1;
@@ -983,12 +1031,12 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request ** subs, unsigned i
 			{
 				//高级命令的不同会对读介质的时间不同，所谓的高级命令也就是读介质的时间减少，在数据传输上是一致的
 				if (command == MUTLI_PLANE){
-					read_time = 3*ssd->parameter->time_characteristics.tR*0.8;
+					read_time = ssd->parameter->time_characteristics.tR;
 					ssd->m_plane_read_count++;
 				}
 				// 禁用
 				else if (command == HALF_PAGE){
-					read_time = 3*ssd->parameter->time_characteristics.tR * 0.5;
+					read_time = ssd->parameter->time_characteristics.tR * 0.5;
 					ssd->half_page_read_count++;
 				}
 				else if (command == ONE_SHOT_READ){
@@ -1035,21 +1083,24 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request ** subs, unsigned i
 
 					subs[i]->current_state = SR_R_DATA_TRANSFER;
 					subs[i]->next_state = SR_COMPLETE;
-					
-					if (command == MUTLI_PLANE){
-						int compress_size = ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].compress_data_state;
-						subs[i]->next_state_predict_time = subs[i]->current_time + (compress_size*3*ssd->parameter->subpage_capacity)*ssd->parameter->time_characteristics.tRC;
-						subs[i]->complete_time = subs[i]->next_state_predict_time;
-					}
-					// 禁用
-					else if (command == HALF_PAGE){
-						subs[i]->next_state_predict_time = subs[i]->current_time + (3*ssd->parameter->subpage_capacity)*ssd->parameter->time_characteristics.tRC;
-						subs[i]->complete_time = subs[i]->next_state_predict_time;
-					}
-					else{
-						subs[i]->next_state_predict_time = subs[i]->current_time + ssd->parameter->page_capacity*ssd->parameter->time_characteristics.tRC;
-						subs[i]->complete_time = subs[i]->next_state_predict_time;
-					}
+
+					subs[i]->next_state_predict_time = subs[i]->current_time + (subs[i]->size*ssd->parameter->subpage_capacity)*ssd->parameter->time_characteristics.tRC;
+					subs[i]->complete_time = subs[i]->next_state_predict_time;
+
+					// huffman coding 
+					// int compress_size = ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].compress_data_state;
+					// if (command == MUTLI_PLANE){
+					// 	subs[i]->next_state_predict_time = subs[i]->current_time + (compress_size*3*ssd->parameter->subpage_capacity)*ssd->parameter->time_characteristics.tRC;
+					// 	subs[i]->complete_time = subs[i]->next_state_predict_time;
+					// }
+					// else if (command == HALF_PAGE){
+					// 	subs[i]->next_state_predict_time = subs[i]->current_time + (3*ssd->parameter->subpage_capacity)*ssd->parameter->time_characteristics.tRC;
+					// 	subs[i]->complete_time = subs[i]->next_state_predict_time;
+					// }
+					// else{
+					// 	subs[i]->next_state_predict_time = subs[i]->current_time + ssd->parameter->page_capacity*ssd->parameter->time_characteristics.tRC;
+					// 	subs[i]->complete_time = subs[i]->next_state_predict_time;
+					// }
 
 					//将地址寄存器清空
 					ssd->channel_head[subs[i]->location->channel].chip_head[subs[i]->location->chip].die_head[subs[i]->location->die].plane_head[subs[i]->location->plane].add_reg_ppn = -1;
@@ -1383,17 +1434,23 @@ Status service_advance_command(struct ssd_info *ssd, unsigned int channel, unsig
 	//当最后读完了，只剩下了单个请求，这个时候可以使用普通的one page program去写完
 	if ((ssd->trace_over_flag == 1 && ssd->request_work == NULL) || (ssd->parameter->warm_flash == 1 && ssd->trace_over_flag == 1 && ssd->warm_flash_cmplt == 0))
 	{
-		for (i = 0; i < subs_count;i++){
+		for (i = 0; i < subs_count;i++)
 			get_ppn_for_normal_command(ssd, channel, chip, subs[i]);
-			printf("service_advance_command 当最后读完了，只剩下了单个请求，这个时候可以使用普通的one page program去写完\n");
-		}
-		for(int i=subs_count;i<aim_subs_count;i++){
-			struct sub_request *tmp_sub = (struct sub_request *)malloc(sizeof(struct sub_request));
-			tmp_sub->lpn = -1;
-			tmp_sub->location->die = subs[i-1]->location->die;
-			subs[i] = tmp_sub;
-		}
-		get_ppn_for_advanced_commands(ssd, channel, chip, subs, aim_subs_count, command);
+
+		return SUCCESS;
+
+		// huffman coding 
+		// for (i = 0; i < subs_count;i++){
+		// 	get_ppn_for_normal_command(ssd, channel, chip, subs[i]);
+		// 	printf("service_advance_command 当最后读完了，只剩下了单个请求，这个时候可以使用普通的one page program去写完\n");
+		// }
+		// for(int i=subs_count;i<aim_subs_count;i++){
+		// 	struct sub_request *tmp_sub = (struct sub_request *)malloc(sizeof(struct sub_request));
+		// 	tmp_sub->lpn = -1;
+		// 	tmp_sub->location->die = subs[i-1]->location->die;
+		// 	subs[i] = tmp_sub;
+		// }
+		// get_ppn_for_advanced_commands(ssd, channel, chip, subs, aim_subs_count, command);
 	}
 	
 	if (subs_count >= aim_subs_count)
@@ -1457,7 +1514,10 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 	unsigned int plane,active_block, page,equal_flag;
 	unsigned int *page_place;
 
-	page_place = (unsigned int *)malloc(ssd->parameter->plane_die*sizeof(page_place));
+	page_place = (unsigned int *)malloc(ssd->parameter->plane_die*sizeof(unsigned int));
+	if(page_place == NULL){
+		printf("malloc error!\n");
+	}
 	old_plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
 
 	//验证请求sub的有效性
@@ -1558,23 +1618,20 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 		}
 	}
 
-	//�ж��Ƿ�ƫ�Ƶ�ַfree pageһ��
-	/*
-	if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[0].free_page != ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[1].free_page)
-	{
-		printf("free page don't equal\n");
-		getchar();
-	}*/
-
-
-	//�ж��Ƿ�ƫ�Ƶ�ַfree pageһ��
-	/*
-	if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[0].free_page != ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[1].free_page)
-	{
-	printf("free page don't equal\n");
-	getchar();
-	}*/
-
+	// //�ж��Ƿ�ƫ�Ƶ�ַfree pageһ��
+	// /*
+	// if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[0].free_page != ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[1].free_page)
+	// {
+	// 	printf("free page don't equal\n");
+	// 	getchar();
+	// }*/
+	// //�ж��Ƿ�ƫ�Ƶ�ַfree pageһ��
+	// /*
+	// if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[0].free_page != ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[1].free_page)
+	// {
+	// printf("free page don't equal\n");
+	// getchar();
+	// }*/
 
 	gc_add = 0;
 	ssd->channel_head[channel].gc_soft = 0;
@@ -1626,197 +1683,199 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 		ssd->channel_head[channel].gc_command = gc_node;					//inserted into the head of the gc chain
 		ssd->gc_request++;
 	}
+	
 	free(page_place);
+	page_place=NULL;
 	return SUCCESS;
 }
 
 
-// 在die层面执行不同于find_level_page是并行将多个页面写入到，每个plane写入1个页面
-// 将多个页面并行写入到不同的plane中，每个plane写入3个页面
-Status find_level_WL(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, struct sub_request **sub, unsigned int subs_count)
-{
-	unsigned int i,j, aim_page = 0, old_plane;
-	struct gc_operation *gc_node;
-	unsigned int gc_add;
+// // 在die层面执行不同于find_level_page是并行将多个页面写入到，每个plane写入1个页面
+// // 将多个页面并行写入到不同的plane中，每个plane写入3个页面
+// Status find_level_WL(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, struct sub_request **sub, unsigned int subs_count)
+// {
+// 	unsigned int i,j, aim_page = 0, old_plane;
+// 	struct gc_operation *gc_node;
+// 	unsigned int gc_add;
 
-	unsigned int plane,active_block, page,equal_flag;
-	unsigned int *page_place;
+// 	unsigned int plane,active_block, page,equal_flag;
+// 	unsigned int *page_place;
 
-	page_place = (unsigned int *)malloc(ssd->parameter->plane_die*sizeof(page_place));
-	old_plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
+// 	page_place = (unsigned int *)malloc(ssd->parameter->plane_die*sizeof(page_place));
+// 	old_plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
 
-	//验证请求sub的有效性
-	if (subs_count != ssd->parameter->plane_die*PAGE_INDEX)
-	{
-		printf("find level failed\n");
-		getchar();
-		return ERROR;
-	}
+// 	//验证请求sub的有效性
+// 	if (subs_count != ssd->parameter->plane_die*PAGE_INDEX)
+// 	{
+// 		printf("find level failed\n");
+// 		getchar();
+// 		return ERROR;
+// 	}
 
-	for (i = 0; i < ssd->parameter->plane_die; i++)
-	{
-		find_active_block_w_Wl_align(ssd, channel, chip, die, i);
-		active_block = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].active_block;
-		page = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].blk_head[active_block].last_write_page + 1;
-		page_place[i] = page;
-	}
+// 	for (i = 0; i < ssd->parameter->plane_die; i++)
+// 	{
+// 		find_active_block_w_Wl_align(ssd, channel, chip, die, i);
+// 		active_block = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].active_block;
+// 		page = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].blk_head[active_block].last_write_page + 1;
+// 		page_place[i] = page;
+// 	}
 
-	equal_flag = 1;
-	for (i = 0; i < (ssd->parameter->plane_die - 1); i++)
-	{
-		if (page_place[i] != page_place[i + 1])
-		{
-			equal_flag = 0;
-			break;
-		}
-	}
+// 	equal_flag = 1;
+// 	for (i = 0; i < (ssd->parameter->plane_die - 1); i++)
+// 	{
+// 		if (page_place[i] != page_place[i + 1])
+// 		{
+// 			equal_flag = 0;
+// 			break;
+// 		}
+// 	}
 
-	//判断所有的page是否相等，如果相等，执行mutli plane，如果不相等，贪婪的使用，将所有的page向最大的page靠近
-	if (equal_flag == 1)	//page偏移地址一致
-	{
-		for (i = 0; i < ssd->parameter->plane_die; i++)
-		{
-			active_block = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].active_block;
-			flash_WL_state_modify(ssd, sub+i*PAGE_INDEX, channel, chip, die, i, active_block, page_place[i]);
-		}
-	}
-	else	//page偏移地址不一致
-	{
-		printf("equal_flag == 0\n");
-		for (i = 0; i < ssd->parameter->plane_die; i++)
-		{
-			printf("%d ", page_place[i]);
-		}
-		printf("\n");
-		if (ssd->parameter->greed_MPW_ad == 1)                                          
-		{			
-			//查看page最大的页当做aim_page
-			for (i = 0; i < ssd->parameter->plane_die; i++)
-			{
-				if (page_place[i] > aim_page)
-					aim_page = page_place[i];
-				if(aim_page % 3 != 1){
-					aim_page = (aim_page/3+1)*3+1;
-				}
-				if(aim_page > ssd->parameter->page_block || aim_page+2 > ssd->parameter->page_block){
-					printf("error aim_page");
-				}
-			}
+// 	//判断所有的page是否相等，如果相等，执行mutli plane，如果不相等，贪婪的使用，将所有的page向最大的page靠近
+// 	if (equal_flag == 1)	//page偏移地址一致
+// 	{
+// 		for (i = 0; i < ssd->parameter->plane_die; i++)
+// 		{
+// 			active_block = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].active_block;
+// 			flash_WL_state_modify(ssd, sub+i*PAGE_INDEX, channel, chip, die, i, active_block, page_place[i]);
+// 		}
+// 	}
+// 	else	//page偏移地址不一致
+// 	{
+// 		printf("equal_flag == 0\n");
+// 		for (i = 0; i < ssd->parameter->plane_die; i++)
+// 		{
+// 			printf("%d ", page_place[i]);
+// 		}
+// 		printf("\n");
+// 		if (ssd->parameter->greed_MPW_ad == 1)                                          
+// 		{			
+// 			//查看page最大的页当做aim_page
+// 			for (i = 0; i < ssd->parameter->plane_die; i++)
+// 			{
+// 				if (page_place[i] > aim_page)
+// 					aim_page = page_place[i];
+// 				if(aim_page % 3 != 1){
+// 					aim_page = (aim_page/3+1)*3+1;
+// 				}
+// 				if(aim_page > ssd->parameter->page_block || aim_page+2 > ssd->parameter->page_block){
+// 					printf("error aim_page");
+// 				}
+// 			}
 
-			//首先检查是否出现了0-63、63-0的跨页不均匀现象
-			if ((page_place[0] == (ssd->parameter->page_block - 1) && page_place[1] == 0) || (page_place[0] == 0 && page_place[1] == (ssd->parameter->page_block - 1)))
-			{
-				for (i = 0; i < ssd->parameter->plane_die; i++)
-				{
-					if (page_place[i] == (ssd->parameter->page_block - 1))
-					{
-						//首先将这个63号页置无效
-						active_block = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].active_block;
-						make_same_level(ssd, channel, chip, die, i, active_block, ssd->parameter->page_block);
+// 			//首先检查是否出现了0-63、63-0的跨页不均匀现象
+// 			if ((page_place[0] == (ssd->parameter->page_block - 1) && page_place[1] == 0) || (page_place[0] == 0 && page_place[1] == (ssd->parameter->page_block - 1)))
+// 			{
+// 				for (i = 0; i < ssd->parameter->plane_die; i++)
+// 				{
+// 					if (page_place[i] == (ssd->parameter->page_block - 1))
+// 					{
+// 						//首先将这个63号页置无效
+// 						active_block = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].active_block;
+// 						make_same_level(ssd, channel, chip, die, i, active_block, ssd->parameter->page_block);
 
-						//寻找新的block,由于置无效了63号页，则会寻找到后面的一个空闲块
-						find_active_block_w_Wl_align(ssd, channel, chip, die, i);
-						active_block = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].active_block;
-						page_place[i] = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].blk_head[active_block].last_write_page + 1;
+// 						//寻找新的block,由于置无效了63号页，则会寻找到后面的一个空闲块
+// 						find_active_block_w_Wl_align(ssd, channel, chip, die, i);
+// 						active_block = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].active_block;
+// 						page_place[i] = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].blk_head[active_block].last_write_page + 1;
 
-						//设置aim_page为0
-						aim_page = 0;
-						break;
-					}
-				}
-			}
+// 						//设置aim_page为0
+// 						aim_page = 0;
+// 						break;
+// 					}
+// 				}
+// 			}
 			
-			for (i = 0; i < ssd->parameter->plane_die; i++)
-			{
-				active_block = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].active_block;
-				if (page_place[i] != aim_page)
-					make_same_level(ssd, channel, chip, die, i, active_block, aim_page);
+// 			for (i = 0; i < ssd->parameter->plane_die; i++)
+// 			{
+// 				active_block = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].active_block;
+// 				if (page_place[i] != aim_page)
+// 					make_same_level(ssd, channel, chip, die, i, active_block, aim_page);
 
-				flash_page_state_modify(ssd, sub[i], channel, chip, die, i, active_block, aim_page);
-			}
-			ssd->channel_head[channel].chip_head[chip].die_head[die].token = old_plane;
-		}
-		else                                                                            
-		{
-			ssd->channel_head[channel].chip_head[chip].die_head[die].token = old_plane;
-			for (i = 0; i < subs_count; i++)
-				sub[i] = NULL;
-			free(page_place);
-			return FAILURE;
-		}
-	}
+// 				flash_page_state_modify(ssd, sub[i], channel, chip, die, i, active_block, aim_page);
+// 			}
+// 			ssd->channel_head[channel].chip_head[chip].die_head[die].token = old_plane;
+// 		}
+// 		else                                                                            
+// 		{
+// 			ssd->channel_head[channel].chip_head[chip].die_head[die].token = old_plane;
+// 			for (i = 0; i < subs_count; i++)
+// 				sub[i] = NULL;
+// 			free(page_place);
+// 			return FAILURE;
+// 		}
+// 	}
 
-	//�ж��Ƿ�ƫ�Ƶ�ַfree pageһ��
-	/*
-	if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[0].free_page != ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[1].free_page)
-	{
-		printf("free page don't equal\n");
-		getchar();
-	}*/
-
-
-	//�ж��Ƿ�ƫ�Ƶ�ַfree pageһ��
-	/*
-	if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[0].free_page != ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[1].free_page)
-	{
-	printf("free page don't equal\n");
-	getchar();
-	}*/
+// 	//�ж��Ƿ�ƫ�Ƶ�ַfree pageһ��
+// 	/*
+// 	if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[0].free_page != ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[1].free_page)
+// 	{
+// 		printf("free page don't equal\n");
+// 		getchar();
+// 	}*/
 
 
-	gc_add = 0;
-	ssd->channel_head[channel].gc_soft = 0;
-	ssd->channel_head[channel].gc_hard = 0;
-	for (i = 0; i < ssd->parameter->plane_die; i++)
-	{
-		if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].free_page <= (ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->gc_soft_threshold))
-		{
-			ssd->channel_head[channel].gc_soft = 1;
-			gc_add = 1;
-			if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].free_page <= (ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->gc_hard_threshold))
-			{
-				ssd->channel_head[channel].gc_hard = 1;
-			}
-		}
-	}
-	if (gc_add == 1)		//produce a gc reqeuest and add gc_node to the channel
-	{
+// 	//�ж��Ƿ�ƫ�Ƶ�ַfree pageһ��
+// 	/*
+// 	if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[0].free_page != ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[1].free_page)
+// 	{
+// 	printf("free page don't equal\n");
+// 	getchar();
+// 	}*/
 
-		gc_node = (struct gc_operation *)malloc(sizeof(struct gc_operation));
-		alloc_assert(gc_node, "gc_node");
-		memset(gc_node, 0, sizeof(struct gc_operation));
-		if (ssd->channel_head[channel].gc_soft == 1)
-		{
-			gc_node->soft = 1;
-		}
-		else
-		{
-			gc_node->soft = 0;
-		}
-		if (ssd->channel_head[channel].gc_hard == 1)
-		{
-			gc_node->hard = 1;
-		}
-		else
-		{
-			gc_node->hard = 0;
-		}
-		gc_node->next_node = NULL;
-		gc_node->channel = channel;
-		gc_node->chip = chip;
-		gc_node->die = die;
-		gc_node->plane = old_plane;
-		gc_node->block = 0xffffffff;
-		gc_node->page = 0;
-		gc_node->state = GC_WAIT;
-		gc_node->priority = GC_UNINTERRUPT;
-		gc_node->next_node = ssd->channel_head[channel].gc_command;
-		ssd->channel_head[channel].gc_command = gc_node;					//inserted into the head of the gc chain
-		ssd->gc_request++;
-	}
-	free(page_place);
-	return SUCCESS;
-}
+
+// 	gc_add = 0;
+// 	ssd->channel_head[channel].gc_soft = 0;
+// 	ssd->channel_head[channel].gc_hard = 0;
+// 	for (i = 0; i < ssd->parameter->plane_die; i++)
+// 	{
+// 		if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].free_page <= (ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->gc_soft_threshold))
+// 		{
+// 			ssd->channel_head[channel].gc_soft = 1;
+// 			gc_add = 1;
+// 			if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].free_page <= (ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->gc_hard_threshold))
+// 			{
+// 				ssd->channel_head[channel].gc_hard = 1;
+// 			}
+// 		}
+// 	}
+// 	if (gc_add == 1)		//produce a gc reqeuest and add gc_node to the channel
+// 	{
+
+// 		gc_node = (struct gc_operation *)malloc(sizeof(struct gc_operation));
+// 		alloc_assert(gc_node, "gc_node");
+// 		memset(gc_node, 0, sizeof(struct gc_operation));
+// 		if (ssd->channel_head[channel].gc_soft == 1)
+// 		{
+// 			gc_node->soft = 1;
+// 		}
+// 		else
+// 		{
+// 			gc_node->soft = 0;
+// 		}
+// 		if (ssd->channel_head[channel].gc_hard == 1)
+// 		{
+// 			gc_node->hard = 1;
+// 		}
+// 		else
+// 		{
+// 			gc_node->hard = 0;
+// 		}
+// 		gc_node->next_node = NULL;
+// 		gc_node->channel = channel;
+// 		gc_node->chip = chip;
+// 		gc_node->die = die;
+// 		gc_node->plane = old_plane;
+// 		gc_node->block = 0xffffffff;
+// 		gc_node->page = 0;
+// 		gc_node->state = GC_WAIT;
+// 		gc_node->priority = GC_UNINTERRUPT;
+// 		gc_node->next_node = ssd->channel_head[channel].gc_command;
+// 		ssd->channel_head[channel].gc_command = gc_node;					//inserted into the head of the gc chain
+// 		ssd->gc_request++;
+// 	}
+// 	free(page_place);
+// 	return SUCCESS;
+// }
 
 /*************************************************************
 *the function is to have two different page positions the same

@@ -274,7 +274,7 @@ struct ssd_info *simulate(struct ssd_info *ssd)
 	{    
 		/*interface layer*/
 		flag = get_requests(ssd) ;  
-		struct sub_request * subt = NULL;
+		// struct sub_request * subt = NULL;
 		// for (int i = 0; i < ssd->parameter->channel_number; i++)                                    
 		// {
 		// 	subt = ssd->channel_head[i].subs_r_head;
@@ -753,7 +753,7 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->outputfile,"---------------------------statistic data---------------------------\n");	 
 	fprintf(ssd->outputfile,"min lsn: %13d\n",ssd->min_lsn);	
 	fprintf(ssd->outputfile,"max lsn: %13d\n",ssd->max_lsn);
-	fprintf(ssd->outputfile,"read count: %13ld\n",ssd->read_count);	  
+	fprintf(ssd->outputfile,"test_count%d read_request_count%d \n", ssd->test_count, ssd->read_request_count);
 	fprintf(ssd->outputfile,"the read operation leaded by un-covered update count: %13ld\n",ssd->update_read_count);
 	fprintf(ssd->outputfile, "the read operation leaded by gc read count: %13ld\n", ssd->gc_read_count);
 	fprintf(ssd->outputfile, "\n");
@@ -826,6 +826,7 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->statisticfile, "min lsn: %13d\n", ssd->min_lsn);
 	fprintf(ssd->statisticfile, "max lsn: %13d\n", ssd->max_lsn);
 	fprintf(ssd->statisticfile, "read count: %13d\n", ssd->read_count);
+	fprintf(ssd->statisticfile, "flash read average : %f\n", ssd->read_state_count/ssd->read_sub_count);
 	fprintf(ssd->statisticfile, "the read operation leaded by un-covered update count: %13d\n", ssd->update_read_count);
 	fprintf(ssd->statisticfile, "the read operation leaded by gc read count: %13d\n", ssd->gc_read_count);
 	fprintf(ssd->statisticfile, "\n");
