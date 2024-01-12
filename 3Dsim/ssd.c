@@ -35,6 +35,7 @@ Zuo Lu				2018/02/07        2.0			The release version 									lzuo@hust.edu.cn
 #include <stdio.h>
 #include <time.h>
 #include <string.h>
+#include <limits.h>
 // #include <crtdbg.h> 
 
 #include "ssd.h"
@@ -136,19 +137,19 @@ void tracefile_sim(struct ssd_info *ssd)
 
 	// SSD 预处理建立映射表,预先处理没写入的读请求
 	pre_process_page(ssd);
-	for (i=0;i<ssd->parameter->channel_number;i++)
-	{
-		for (m = 0; m < ssd->parameter->chip_channel[i]; m++)
-		{
-			for (j = 0; j < ssd->parameter->die_chip; j++)
-			{
-				for (k = 0; k < ssd->parameter->plane_die; k++)
-				{	
-					printf("free_page: %d,%d,%d,%d:  %5d\n", i, m, j, k, ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].free_page);
-				}
-			}
-		}
-	}
+	// for (i=0;i<ssd->parameter->channel_number;i++)
+	// {
+	// 	for (m = 0; m < ssd->parameter->chip_channel[i]; m++)
+	// 	{
+	// 		for (j = 0; j < ssd->parameter->die_chip; j++)
+	// 		{
+	// 			for (k = 0; k < ssd->parameter->plane_die; k++)
+	// 			{	
+	// 				printf("free_page: %d,%d,%d,%d:  %5d\n", i, m, j, k, ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].free_page);
+	// 			}
+	// 		}
+	// 	}
+	// }
 	
 	warm_flash(ssd);
 	for (i=0;i<ssd->parameter->channel_number;i++)
@@ -273,19 +274,10 @@ struct ssd_info *simulate(struct ssd_info *ssd)
 	while(flag!=100)      
 	{    
 		/*interface layer*/
-		flag = get_requests(ssd) ;  
-		// struct sub_request * subt = NULL;
-		// for (int i = 0; i < ssd->parameter->channel_number; i++)                                    
-		// {
-		// 	subt = ssd->channel_head[i].subs_r_head;
-		// 	while (subt != NULL)
-		// 	{
-		// 		int f = (subt->location->chip == 0);
-		// 		subt = subt->next_node;
-		// 	}
-		// }
+		// 更新时间以及从文件中得到请求
+		flag =get_requests(ssd) ;  
 
-		// printf("ssd->current_time %lld get_requests flag %d\n",ssd->current_time,flag);      
+		// printf("get_requests ssd->current_time %lld get_requests flag %d\n",ssd->current_time,flag);      
 		
 		/*buffer layer*/
 		if (flag == 1 || (flag == 0 && ssd->request_work != NULL))
@@ -311,11 +303,14 @@ struct ssd_info *simulate(struct ssd_info *ssd)
 			}
 
 		}
+		// printf("buffer_management ssd->current_time %lld get_requests flag %d\n",ssd->current_time,flag);
 	
 		/*ftl+fcl+flash layer*/
 		process(ssd); 
+		// printf("process ssd->current_time %lld get_requests flag %d\n",ssd->current_time,flag);
 
 		trace_output(ssd);
+		// printf("trace_output ssd->current_time %lld get_requests flag %d\n",ssd->current_time,flag);
 	
 		if (flag == 0 && ssd->request_queue == NULL)
 			flag = 100;
@@ -407,7 +402,7 @@ struct ssd_info *process(struct ssd_info *ssd)
 					}
 				}
 			}
-			
+		
 			/*********************************************************
 			*1.First read the wait state of the read request, 
 			*2.followed by the state of the read flash
@@ -532,6 +527,7 @@ void trace_output(struct ssd_info* ssd){
 					pre_node = NULL;
 					ssd->request_queue_length--;
 				}
+				// printf("ssd->request_queue_length--\n");
 			}
 			else
 			{
@@ -554,6 +550,7 @@ void trace_output(struct ssd_info* ssd){
 					req = pre_node->next_node;
 					ssd->request_queue_length--;
 				}
+				// printf("ssd->request_queue_length--\n");
 			}
 		
 		}
@@ -637,6 +634,7 @@ void trace_output(struct ssd_info* ssd){
 						ssd->request_queue = NULL;
 						ssd->request_tail = NULL;
 						ssd->request_queue_length--;
+				
 					}
 					else
 					{
@@ -649,6 +647,7 @@ void trace_output(struct ssd_info* ssd){
 						pre_node = NULL;
 						ssd->request_queue_length--;
 					}
+					// printf("ssd->request_queue_length--\n");
 				}
 				else
 				{
@@ -669,9 +668,9 @@ void trace_output(struct ssd_info* ssd){
 						req->need_distr_flag = NULL;
 						free(req);
 						req = pre_node->next_node;
-						ssd->request_queue_length--;
+						ssd->request_queue_length--;				
 					}
-
+					// printf("ssd->request_queue_length--\n");
 				}
 			}
 			else
@@ -753,6 +752,7 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->outputfile,"---------------------------statistic data---------------------------\n");	 
 	fprintf(ssd->outputfile,"min lsn: %13d\n",ssd->min_lsn);	
 	fprintf(ssd->outputfile,"max lsn: %13d\n",ssd->max_lsn);
+	fprintf(ssd->outputfile,"flash read average : %f\n", ssd->read_state_count/ssd->read_sub_count);
 	fprintf(ssd->outputfile,"test_count%d read_request_count%d \n", ssd->test_count, ssd->read_request_count);
 	fprintf(ssd->outputfile,"the read operation leaded by un-covered update count: %13ld\n",ssd->update_read_count);
 	fprintf(ssd->outputfile, "the read operation leaded by gc read count: %13ld\n", ssd->gc_read_count);
@@ -774,9 +774,15 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->outputfile, "one shot program count : %13d\n", ssd->ontshot_prog_count);
 	fprintf(ssd->outputfile, "\n");
 
-	fprintf(ssd->outputfile, "half page read count : %13d\n", ssd->half_page_read_count);
-	fprintf(ssd->outputfile, "one shot read count : %13d\n", ssd->one_shot_read_count);
+	fprintf(ssd->outputfile, "total read count : %13d\n", ssd->read_sub_count);
+	fprintf(ssd->outputfile, "update sub read count : %13d\n", ssd->update_read_sub_count);
+	fprintf(ssd->outputfile, "normal page read count : %13d\n", ssd->normal_read_count);
 	fprintf(ssd->outputfile, "mutli plane one shot read count : %13d\n", ssd->one_shot_mutli_plane_count);
+	fprintf(ssd->outputfile, "one shot read count : %13d\n", ssd->one_shot_read_count);
+	fprintf(ssd->outputfile, "multi-plane read count: %13d\n", ssd->m_plane_read_count);
+	fprintf(ssd->outputfile, "half page read count : %13d\n", ssd->half_page_read_count);
+	fprintf(ssd->outputfile, "SOML read count : %13d\n", ssd->SOML_read_count);
+	fprintf(ssd->outputfile, "compute read count : %13d\n", ssd->SOML_read_count+ssd->half_page_read_count+ssd->m_plane_read_count*ssd->parameter->plane_die+ssd->one_shot_read_count*PAGE_INDEX+ssd->one_shot_mutli_plane_count+ssd->parameter->plane_die*PAGE_INDEX+ssd->normal_read_count);
 	fprintf(ssd->outputfile, "\n");
 
 	fprintf(ssd->outputfile, "erase suspend count : %13d\n", ssd->suspend_count);
@@ -807,6 +813,7 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->outputfile, "update sub request count : %13d\n", ssd->update_sub_request);
 	fprintf(ssd->outputfile, "normal page read count : %13d\n", ssd->normal_read_count);
 	fprintf(ssd->outputfile, "half page read count : %13d\n", ssd->half_page_read_count);
+	fprintf(ssd->outputfile, "SOML read count : %13d\n", ssd->SOML_read_count);
 	fprintf(ssd->outputfile, "mutli plane one shot program count : %13d\n", ssd->mutliplane_oneshot_prog_count);
 	fprintf(ssd->outputfile, "one shot read count : %13d\n", ssd->one_shot_read_count);
 	fprintf(ssd->outputfile, "mutli plane one shot read count : %13d\n", ssd->one_shot_mutli_plane_count);
@@ -844,13 +851,21 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->statisticfile,"multi-plane read count: %13d\n",ssd->m_plane_read_count);
 	fprintf(ssd->statisticfile, "\n");
 
-	fprintf(ssd->statisticfile, "mutli plane one shot program count : %13d\n", ssd->mutliplane_oneshot_prog_count);
+	fprintf(ssd->statisticfile, "mutli plane one shot program count : %13d\n", ssd->OSR_MP_prog_count);
 	fprintf(ssd->statisticfile, "one shot program count : %13d\n", ssd->ontshot_prog_count);
+	fprintf(ssd->statisticfile, "mutli plane program count : %13d\n", ssd->m_plane_prog_count);
+	fprintf(ssd->statisticfile, "normal program count : %13d\n", ssd->normal_prog_count);
 	fprintf(ssd->statisticfile, "\n");
 
-	fprintf(ssd->statisticfile, "half page read count : %13d\n", ssd->half_page_read_count);
-	fprintf(ssd->statisticfile, "one shot read count : %13d\n", ssd->one_shot_read_count);
+	fprintf(ssd->statisticfile, "total read count : %13d\n", ssd->read_sub_count);
+	fprintf(ssd->statisticfile, "update sub read count : %13d\n", ssd->update_read_sub_count);
+	fprintf(ssd->statisticfile, "normal page read count : %13d\n", ssd->normal_read_count);
 	fprintf(ssd->statisticfile, "mutli plane one shot read count : %13d\n", ssd->one_shot_mutli_plane_count);
+	fprintf(ssd->statisticfile, "one shot read count : %13d\n", ssd->one_shot_read_count);
+	fprintf(ssd->statisticfile, "multi-plane read count: %13d\n", ssd->m_plane_read_count);
+	fprintf(ssd->statisticfile, "half page read count : %13d\n", ssd->half_page_read_count);
+	fprintf(ssd->statisticfile, "SOML read count : %13d\n", ssd->SOML_read_count);
+	fprintf(ssd->statisticfile, "compute read count : %13d\n", ssd->SOML_read_count+ssd->half_page_read_count+ssd->m_plane_read_count*ssd->parameter->plane_die+ssd->one_shot_read_count*PAGE_INDEX+ssd->one_shot_mutli_plane_count+ssd->parameter->plane_die*PAGE_INDEX+ssd->normal_read_count);
 	fprintf(ssd->statisticfile, "\n");
 
 	fprintf(ssd->statisticfile, "erase suspend count : %13d\n", ssd->suspend_count);
@@ -1277,7 +1292,7 @@ void trace_assert(int64_t time_t, int device, unsigned int lsn, int size, int op
 {
 	if (time_t <0 || device < 0 || lsn < 0 || size < 0 || ope < 0)
 	{
-		printf("trace error:%I64u %d %d %d %d\n", time_t, device, lsn, size, ope);
+		printf("trace error:int64_t %d %d %d %d\n", time_t, device, lsn, size, ope);
 		getchar();
 		exit(-1);
 	}

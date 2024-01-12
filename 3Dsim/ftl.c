@@ -771,6 +771,7 @@ Status get_ppn_for_normal_command(struct ssd_info * ssd, unsigned int channel, u
 *************************************************************************************************/
 Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel, unsigned int chip, struct sub_request ** subs, unsigned int subs_count, unsigned int command)
 {
+	// printf("get_ppn_for_advanced_commands %d\n",command);
 	unsigned int aim_die = 0, aim_plane = 0, aim_count = 0;
 	unsigned int die_token = 0, plane_token = 0;
 	unsigned int i = 0, j = 0, k = 0;
@@ -803,11 +804,14 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 	//如果是one shot mutli plane的情况，这里就要分superpage还是mutli plane优先
 	if (command == ONE_SHOT_MUTLI_PLANE)
 	{
-		// mutli_subs = (struct sub_request **)malloc(ssd->parameter->plane_die*PAGE_INDEX* sizeof(struct sub_request *));
 		mutli_subs = (struct sub_request **)malloc(ssd->parameter->plane_die * sizeof(struct sub_request *));
 		if(mutli_subs == NULL){
 			printf("malloc error!\n");
 		}
+		//free mutli_subs
+		for (i = 0; i < ssd->parameter->plane_die; i++)
+			mutli_subs[i] = NULL;
+
 		//plane>superpage:024/135
 		if (ssd->parameter->static_allocation == PLANE_STATIC_ALLOCATION || ssd->parameter->static_allocation == CHANNEL_PLANE_STATIC_ALLOCATION )
 		{
@@ -826,15 +830,6 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 				find_level_page(ssd, channel, chip, aim_die, mutli_subs, ssd->parameter->plane_die);
 				k = k + ssd->parameter->plane_die;
 			}
-
-			// // huffman coding
-			// for(i=0;i<ssd->parameter->plane_die;i++){
-			// 	for(j=0;j<PAGE_INDEX;j++){
-			// 		mutli_subs[i*PAGE_INDEX+j]=subs[j*ssd->parameter->plane_die+i];
-			// 	}
-			// }
-			// //进行mutli plane的操作
-			// find_level_WL(ssd, channel, chip, aim_die, mutli_subs, ssd->parameter->plane_die*PAGE_INDEX);
 		}//superpage>plane;012/345
 		else if (ssd->parameter->static_allocation == SUPERPAGE_STATIC_ALLOCATION || ssd->parameter->static_allocation == CHANNEL_SUPERPAGE_STATIC_ALLOCATION)
 		{
@@ -854,14 +849,6 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 				//进行mutli plane的操作
 				find_level_page(ssd, channel, chip, aim_die, mutli_subs, ssd->parameter->plane_die);
 			}
-
-			// //huffman coding 
-			// for (i = 0; i < PAGE_INDEX * ssd->parameter->plane_die; i++)
-			// {
-			// 	mutli_subs[i]=subs[i];
-			// }
-			// //进行mutli plane的操作
-			// find_level_WL(ssd, channel, chip, aim_die, mutli_subs, ssd->parameter->plane_die*PAGE_INDEX);
 		}
 
 		valid_subs_count = subs_count;
@@ -871,9 +858,6 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 		if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)
 			ssd->channel_head[channel].chip_head[chip].token = (aim_die + 1) % ssd->parameter->die_chip;
 
-		//free mutli_subs
-		// for (i = 0; i < ssd->parameter->plane_die*PAGE_INDEX; i++)
-		// 	mutli_subs[i] = NULL;
 		free(mutli_subs);
 		mutli_subs = NULL;
 		return SUCCESS;

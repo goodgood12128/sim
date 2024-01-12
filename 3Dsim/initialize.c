@@ -186,6 +186,7 @@ void initialize_statistic(struct ssd_info * ssd)
 {
 	//Initialize parameters
 	ssd->normal_read_count = 0;
+	ssd->SOML_read_count = 0;
 	ssd->read_count = 0;
 	ssd->update_read_count = 0;
 	ssd->gc_read_count = 0;
@@ -220,7 +221,9 @@ void initialize_statistic(struct ssd_info * ssd)
 	ssd->read_request_count = 0;
 	ssd->current_time = 0;
 
+	ssd->OSR_MP_prog_count = 0;
 	ssd->m_plane_prog_count = 0;
+	ssd->normal_prog_count = 0;
 	ssd->mutliplane_oneshot_prog_count = 0;
 	ssd->one_shot_read_count = 0;
 
@@ -290,7 +293,7 @@ struct dram_info * initialize_dram(struct ssd_info * ssd)
 	{
 		if ((ssd->parameter->advanced_commands&AD_ONESHOT_PROGRAM) == AD_ONESHOT_PROGRAM)
 		{
-			if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE)
+			if (((ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE)|| (ssd->parameter->advanced_commands&AD_INDEPENDENT_MUTLIPLANE) == AD_INDEPENDENT_MUTLIPLANE)
 			{
 				dram->command_buffer->max_command_buff_page = ssd->parameter->plane_die * PAGE_INDEX;
 				for (i = 0; i < DIE_NUMBER; i++)
@@ -556,6 +559,12 @@ struct parameter_value *load_parameters(char parameter_file[30])
 			sscanf(buf + next_eql, "%d", &p->time_characteristics.tERSL);  //the trans time of suspend/resume operation
 		}else if ((res_eql = strcmp(buf, "t_R")) == 0){
 			sscanf(buf + next_eql, "%d", &p->time_characteristics.tR); //The time to read flash
+		}else if ((res_eql = strcmp(buf, "t_R1")) == 0){
+			sscanf(buf + next_eql, "%d", &p->time_characteristics.tPR1); //The time to read flash
+		}else if ((res_eql = strcmp(buf, "t_R2")) == 0){
+			sscanf(buf + next_eql, "%d", &p->time_characteristics.tPR2); //The time to read flash
+		}else if ((res_eql = strcmp(buf, "t_R3")) == 0){
+			sscanf(buf + next_eql, "%d", &p->time_characteristics.tPR3); //The time to read flash
 		}else if ((res_eql = strcmp(buf, "t_WC")) == 0){
 			sscanf(buf + next_eql, "%d", &p->time_characteristics.tWC); //Transfer address One byte of time
 		}else if ((res_eql = strcmp(buf, "t_RC")) == 0){

@@ -1144,6 +1144,9 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 		}
 		else                                                               
 		{
+			// printf("before lpn %d state %d\n",sub_r->lpn, sub_r->state);
+			// sub_r->state = sub_r->state | sub->state;
+			// printf("after lpn %d state %d\n",sub_r->lpn, sub_r->state);
 			sub->current_state = SR_R_DATA_TRANSFER;
 			sub->current_time = ssd->current_time;
 			sub->next_state = SR_COMPLETE;                                         //��Ϊ���״̬
@@ -1254,6 +1257,7 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req)
 
 			if (flag == 0)
 			{
+				ssd->update_read_sub_count++;
 				if (ssd->channel_head[location->channel].subs_r_tail != NULL)
 				{
 					ssd->channel_head[location->channel].subs_r_tail->next_node = update;
@@ -1263,11 +1267,11 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req)
 				{
 					ssd->channel_head[location->channel].subs_r_tail = update;
 					ssd->channel_head[location->channel].subs_r_head = update;
-					update->location->die;
 				}
 			}
-			else //？
+			else
 			{
+				sub_r->state = sub_r->state | update->state;
 				update->current_state = SR_R_DATA_TRANSFER;
 				update->current_time = ssd->current_time;
 				update->next_state = SR_COMPLETE;

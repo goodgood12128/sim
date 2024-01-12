@@ -77,7 +77,6 @@ int get_requests(struct ssd_info *ssd)
 			ssd->current_time = nearest_event_time;
 		else
 			ssd->current_time += 5000000;
-		// printf("ssd->trace_over_flag: %d\n", ssd->trace_over_flag);
 		return 0;
 	}
 	
@@ -135,7 +134,7 @@ int get_requests(struct ssd_info *ssd)
 	if (nearest_event_time == 0x7fffffffffffffff)
 	{
 		ssd->current_time = time_t;
-		if (ssd->buffer_full_flag == 1)			   
+		if (ssd->buffer_full_flag == 1)	// 超过更新队列深度，将trace文件读取阻塞		   
 		{
 			fseek(ssd->tracefile, filepoint, 0);
 			// printf("nearest_event_time == 0x7fffffffffffffff ssd->buffer_full_flag == 1\n");
@@ -144,10 +143,9 @@ int get_requests(struct ssd_info *ssd)
 		else if (ssd->request_queue_length >= ssd->parameter->queue_length)  //request queue is full, request should be block
 		{
 			fseek(ssd->tracefile, filepoint, 0);
-			// printf("ssd->request_queue_length >= ssd->parameter->queue_length\n");
+			// printf("nearest_event_time == 0x7fffffffffffffff ssd->request_queue_length >= ssd->parameter->queue_length\n");
 			return 0;
 		}
-		
 	}
 	else
 	{
@@ -301,12 +299,16 @@ int64_t find_nearest_event(struct ssd_info *ssd)
 
 	for (i = 0; i<ssd->parameter->channel_number; i++)
 	{
+		// CHANNEL_IDLE 000 CHANNEL_C_A_TRANSFER 3 CHANNEL_DATA_TRANSFER 7
+		// printf("channel %d, current state %d next state %d next_state_predict_time %lld\n", i, ssd->channel_head[i].current_state, ssd->channel_head[i].next_state, ssd->channel_head[i].next_state_predict_time);
 		if (ssd->channel_head[i].next_state == CHANNEL_IDLE)
 			if (time1>ssd->channel_head[i].next_state_predict_time)
-				if (ssd->channel_head[i].next_state_predict_time>ssd->current_time)
+				if (ssd->channel_head[i].next_state_predict_time>ssd->current_time) 
 					time1 = ssd->channel_head[i].next_state_predict_time;
 		for (j = 0; j<ssd->parameter->chip_channel[i]; j++)
 		{
+			//CHIP_IDLE 100 CHIP_READ_BUSY 102 CHIP_WRITE_BUSY 101 CHIP_C_A_TRANSFER 103 CHIP_DATA_TRANSFER 107
+			// printf("chip_channel %d, chip %d, current state %d next state %d next_state_predict_time %lld\n", i, j, ssd->channel_head[i].chip_head[j].current_state, ssd->channel_head[i].chip_head[j].next_state, ssd->channel_head[i].chip_head[j].next_state_predict_time);
 			if ((ssd->channel_head[i].chip_head[j].next_state == CHIP_IDLE) || (ssd->channel_head[i].chip_head[j].next_state == CHIP_DATA_TRANSFER))
 				if (time2>ssd->channel_head[i].chip_head[j].next_state_predict_time)
 					if (ssd->channel_head[i].chip_head[j].next_state_predict_time>ssd->current_time)
@@ -318,7 +320,7 @@ int64_t find_nearest_event(struct ssd_info *ssd)
 	*time return: A.next state is CHANNEL_IDLE and next_state_predict_time> ssd->current_time
 	*			  B.next state is CHIP_IDLE and next_state_predict_time> ssd->current_time
 	*			  C.next state is CHIP_DATA_TRANSFER and next_state_predict_time> ssd->current_time
-	*A/B/C all not meet��return 0x7fffffffffffffff,means channel and chip is idle
+	*A/B/C all not meet, return 0x7fffffffffffffff,means channel and chip is idle（？？？）
 	*****************************************************************************************************/
 	time = (time1>time2) ? time2 : time1;
 	return time;

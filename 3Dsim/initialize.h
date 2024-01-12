@@ -72,6 +72,9 @@ Zuo Lu				2018/02/07        2.0			The release version 									lzuo@hust.edu.cn
 #define ONE_SHOT_READ 5
 #define ONE_SHOT_READ_MUTLI_PLANE 6
 #define SOML_READ 7
+#define ONE_SHOT_READ_INDEPENDENT_MUTLI_PLANE 8
+#define INDEPENDENT_MUTLI_PLANE 9
+#define IMP_SOML_READ 10
 
 //advanced command
 #define AD_MUTLIPLANE  1  //mutli plane 
@@ -80,6 +83,7 @@ Zuo Lu				2018/02/07        2.0			The release version 									lzuo@hust.edu.cn
 #define AD_ONESHOT_READ 8     //one shot read ,used in mutli plane and single plane program operation
 #define AD_ERASE_SUSPEND_RESUME 16  //erase_suspend/resume,used in erase operation
 #define AD_SOML_READ 32
+#define AD_INDEPENDENT_MUTLIPLANE 64
 
 #define READ 1
 #define WRITE 0
@@ -185,6 +189,9 @@ struct ac_time_characteristics{
 	int tWH;       //WE high hold time
 	int tADL;      //address to data loading time
 	int tR;        //data transfer from cell to register
+	int tPR1;
+	int tPR2;
+	int tPR3;
 	int tRLSB;
 	int tRCSB;
 	int tRMSB;
@@ -242,13 +249,14 @@ struct ssd_info{
 
 	unsigned int min_lsn;
 	unsigned int max_lsn;
-
+	unsigned long update_read_sub_count;
 	unsigned long read_count;
 	unsigned long update_read_count;      //Record the number of updates read
 	unsigned long gc_read_count;		  //Record gc caused by the read operation
 	unsigned long normal_read_count;
 	unsigned long half_page_read_count;   //Recond the number of half page read operation
 	unsigned long one_shot_read_count;	  //Recond the number of one shot read operation
+	unsigned long SOML_read_count;
 	unsigned long one_shot_mutli_plane_count;//Record the number of one shot mutli plane read operation
 	unsigned long resume_count;
 	unsigned long suspend_count;
@@ -267,6 +275,8 @@ struct ssd_info{
 	unsigned long m_plane_read_count;
 	unsigned long m_plane_prog_count;
 	unsigned long mplane_erase_count;
+	unsigned long normal_prog_count;
+	unsigned long OSR_MP_prog_count;
 
 	unsigned long ontshot_prog_count;
 	unsigned long mutliplane_oneshot_prog_count;
@@ -533,6 +543,9 @@ struct sub_request{
 	unsigned int oneshot_flag;
 	unsigned int oneshot_mutliplane_flag;
 	unsigned int soml_read_flag;
+	unsigned int imp_soml_read_flag;
+	unsigned int OSR_IMP_flag;
+	unsigned int IMP_flag;
 
 	//suspend
 	unsigned int suspend_req_flag;
