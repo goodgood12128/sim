@@ -187,6 +187,7 @@ void initialize_statistic(struct ssd_info * ssd)
 	//Initialize parameters
 	ssd->normal_read_count = 0;
 	ssd->SOML_read_count = 0;
+	ssd->IMP_SOML_read_count = 0;
 	ssd->read_count = 0;
 	ssd->update_read_count = 0;
 	ssd->gc_read_count = 0;

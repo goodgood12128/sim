@@ -781,8 +781,9 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->outputfile, "one shot read count : %13d\n", ssd->one_shot_read_count);
 	fprintf(ssd->outputfile, "multi-plane read count: %13d\n", ssd->m_plane_read_count);
 	fprintf(ssd->outputfile, "half page read count : %13d\n", ssd->half_page_read_count);
+	fprintf(ssd->outputfile, "mutli plane SOML read count : %13d\n", ssd->IMP_SOML_read_count);
 	fprintf(ssd->outputfile, "SOML read count : %13d\n", ssd->SOML_read_count);
-	fprintf(ssd->outputfile, "compute read count : %13d\n", ssd->SOML_read_count+ssd->half_page_read_count+ssd->m_plane_read_count*ssd->parameter->plane_die+ssd->one_shot_read_count*PAGE_INDEX+ssd->one_shot_mutli_plane_count+ssd->parameter->plane_die*PAGE_INDEX+ssd->normal_read_count);
+	fprintf(ssd->outputfile, "compute read count : %13d\n", ssd->SOML_read_count+ssd->IMP_SOML_read_count+ssd->half_page_read_count+ssd->m_plane_read_count*ssd->parameter->plane_die+ssd->one_shot_read_count*PAGE_INDEX+ssd->one_shot_mutli_plane_count+ssd->parameter->plane_die*PAGE_INDEX+ssd->normal_read_count);
 	fprintf(ssd->outputfile, "\n");
 
 	fprintf(ssd->outputfile, "erase suspend count : %13d\n", ssd->suspend_count);
@@ -811,12 +812,13 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->outputfile,"buffer write miss: %13d\n",ssd->dram->buffer->write_miss_hit);
 	
 	fprintf(ssd->outputfile, "update sub request count : %13d\n", ssd->update_sub_request);
-	fprintf(ssd->outputfile, "normal page read count : %13d\n", ssd->normal_read_count);
+	// fprintf(ssd->outputfile, "normal page read count : %13d\n", ssd->normal_read_count);
 	fprintf(ssd->outputfile, "half page read count : %13d\n", ssd->half_page_read_count);
-	fprintf(ssd->outputfile, "SOML read count : %13d\n", ssd->SOML_read_count);
-	fprintf(ssd->outputfile, "mutli plane one shot program count : %13d\n", ssd->mutliplane_oneshot_prog_count);
-	fprintf(ssd->outputfile, "one shot read count : %13d\n", ssd->one_shot_read_count);
-	fprintf(ssd->outputfile, "mutli plane one shot read count : %13d\n", ssd->one_shot_mutli_plane_count);
+	// fprintf(ssd->outputfile, "mutli plane SOML read count : %13d\n", ssd->IMP_SOML_read_count)
+	// fprintf(ssd->outputfile, "SOML read count : %13d\n", ssd->SOML_read_count);
+	// fprintf(ssd->outputfile, "compute read count : %13d\n", ssd->SOML_read_count+ssd->IMP_SOML_read_count+ssd->half_page_read_count+ssd->m_plane_read_count*ssd->parameter->plane_die+ssd->one_shot_read_count*PAGE_INDEX+ssd->one_shot_mutli_plane_count+ssd->parameter->plane_die*PAGE_INDEX+ssd->normal_read_count);
+	// fprintf(ssd->outputfile, "one shot read count : %13d\n", ssd->one_shot_read_count);
+	// fprintf(ssd->outputfile, "mutli plane one shot read count : %13d\n", ssd->one_shot_mutli_plane_count);
 	fprintf(ssd->outputfile, "erase suspend count : %13d\n", ssd->suspend_count);
 	fprintf(ssd->outputfile, "erase resume  count : %13d\n", ssd->resume_count);
 	fprintf(ssd->outputfile, "suspend read  count : %13d\n", ssd->suspend_read_count);

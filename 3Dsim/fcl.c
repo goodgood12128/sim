@@ -564,34 +564,7 @@ Status services_2_r_wait(struct ssd_info * ssd, unsigned int channel)
 			}
 		}
 		/***************************************************************************************************************************************/
-		if ((ssd->parameter->advanced_commands&AD_SOML_READ) == AD_SOML_READ && (ssd->parameter->advanced_commands&AD_INDEPENDENT_MUTLIPLANE) == AD_INDEPENDENT_MUTLIPLANE)
-		{
-			sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, IMP_SOML_READ);
-			if (sub_r_req_count >= 2)
-			{
-				for(i = sub_r_req_count;i<(ssd->parameter->plane_die * ssd->parameter->subpage_page* PAGE_INDEX);i++)
-					sub_place[i] = NULL;
 
-				go_one_step(ssd, sub_place, sub_r_req_count, SR_R_C_A_TRANSFER, IMP_SOML_READ);
-				ssd->channel_head[channel].channel_busy_flag = 1;
-				continue;
-			}
-		}
-		if ((ssd->parameter->advanced_commands&AD_SOML_READ) == AD_SOML_READ)
-		{
-			sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, SOML_READ);
-			if (sub_r_req_count >= 1)
-			{
-				// for(int l = 0; l < sub_r_req_count; l++){
-				// 	printf("find %d lpn %d state %d\n",l, sub_place[l]->lpn, sub_place[l]->state);
-				// }
-				for(i = sub_r_req_count;i<(ssd->parameter->plane_die * ssd->parameter->subpage_page* PAGE_INDEX);i++)
-					sub_place[i] = NULL;
-				go_one_step(ssd, sub_place, sub_r_req_count, SR_R_C_A_TRANSFER, SOML_READ);
-				ssd->channel_head[channel].channel_busy_flag = 1;
-				continue;
-			}
-		}
 		if (ssd->parameter->flash_mode == TLC_MODE)							 //ֻ����tlc mode �²��ܽ���one shot mutli plane read/one shot read
 		{
 			// 不支持IMP，按照MP OSR、OSR、half page、normal的顺序查找
@@ -599,6 +572,67 @@ Status services_2_r_wait(struct ssd_info * ssd, unsigned int channel)
 				printf("command error!, not support MP && IMP\n");
 				while(1){};
 			}
+
+			if ((ssd->parameter->advanced_commands&AD_SOML_READ) == AD_SOML_READ && (ssd->parameter->advanced_commands&AD_INDEPENDENT_MUTLIPLANE) == AD_INDEPENDENT_MUTLIPLANE)
+			{
+				sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, IMP_SOML_READ);
+				if (sub_r_req_count >= 2)
+				{
+					for(i = sub_r_req_count;i<(ssd->parameter->plane_die * ssd->parameter->subpage_page* PAGE_INDEX);i++)
+						sub_place[i] = NULL;
+
+					go_one_step(ssd, sub_place, sub_r_req_count, SR_R_C_A_TRANSFER, IMP_SOML_READ);
+					ssd->channel_head[channel].channel_busy_flag = 1;
+					continue;
+				}
+			}
+
+			if ((ssd->parameter->advanced_commands&AD_SOML_READ) == AD_SOML_READ)
+			{
+				sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, SOML_READ);
+				if (sub_r_req_count >= 1)
+				{
+					// for(int l = 0; l < sub_r_req_count; l++){
+					// 	printf("find %d lpn %d state %d\n",l, sub_place[l]->lpn, sub_place[l]->state);
+					// }
+					for(i = sub_r_req_count;i<(ssd->parameter->plane_die * ssd->parameter->subpage_page* PAGE_INDEX);i++)
+						sub_place[i] = NULL;
+					go_one_step(ssd, sub_place, sub_r_req_count, SR_R_C_A_TRANSFER, SOML_READ);
+					ssd->channel_head[channel].channel_busy_flag = 1;
+					continue;
+				}
+			}
+
+			if ((ssd->parameter->advanced_commands&AD_INDEPENDENT_MUTLIPLANE) == AD_INDEPENDENT_MUTLIPLANE)
+			{
+				sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, INDEPENDENT_MUTLI_PLANE);
+				if ((sub_r_req_count >1) && (sub_r_req_count <= ssd->parameter->plane_die))
+				{
+					// printf("mp\n");
+					for(i = sub_r_req_count;i<(ssd->parameter->plane_die * ssd->parameter->subpage_page* PAGE_INDEX);i++)
+						sub_place[i] = NULL;
+
+					go_one_step(ssd, sub_place, sub_r_req_count, SR_R_C_A_TRANSFER, INDEPENDENT_MUTLI_PLANE);
+					ssd->channel_head[channel].channel_busy_flag = 1;
+					continue;
+				}
+			}
+
+			if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE)
+			{
+				sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, MUTLI_PLANE);
+				if ((sub_r_req_count >1) && (sub_r_req_count <= ssd->parameter->plane_die))
+				{
+					// printf("imp\n");
+					for(i = sub_r_req_count;i<(ssd->parameter->plane_die * ssd->parameter->subpage_page* PAGE_INDEX);i++)
+						sub_place[i] = NULL;
+
+					go_one_step(ssd, sub_place, sub_r_req_count, SR_R_C_A_TRANSFER, MUTLI_PLANE);
+					ssd->channel_head[channel].channel_busy_flag = 1;
+					continue;
+				}
+			}
+
 			if ((ssd->parameter->advanced_commands&AD_ONESHOT_READ) == AD_ONESHOT_READ && (ssd->parameter->advanced_commands&AD_INDEPENDENT_MUTLIPLANE) == AD_INDEPENDENT_MUTLIPLANE)
 			{
 				sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, ONE_SHOT_READ_INDEPENDENT_MUTLI_PLANE);
@@ -613,6 +647,7 @@ Status services_2_r_wait(struct ssd_info * ssd, unsigned int channel)
 					continue;
 				}
 			}
+
 			if ((ssd->parameter->advanced_commands&AD_ONESHOT_READ) == AD_ONESHOT_READ && (ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE)
 			{
 				sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, ONE_SHOT_READ_MUTLI_PLANE);
@@ -627,6 +662,8 @@ Status services_2_r_wait(struct ssd_info * ssd, unsigned int channel)
 					continue;
 				}
 			}
+
+
 			//�ж��ܷ���one shot read�߼��������
 			if ((ssd->parameter->advanced_commands&AD_ONESHOT_READ) == AD_ONESHOT_READ)
 			{
@@ -641,35 +678,6 @@ Status services_2_r_wait(struct ssd_info * ssd, unsigned int channel)
 					ssd->channel_head[channel].channel_busy_flag = 1;
 					continue;
 				}
-			}
-		}
-
-		if ((ssd->parameter->advanced_commands&AD_INDEPENDENT_MUTLIPLANE) == AD_INDEPENDENT_MUTLIPLANE)
-		{
-			sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, INDEPENDENT_MUTLI_PLANE);
-			if ((sub_r_req_count >1) && (sub_r_req_count <= ssd->parameter->plane_die))
-			{
-				// printf("mp\n");
-				for(i = sub_r_req_count;i<(ssd->parameter->plane_die * ssd->parameter->subpage_page* PAGE_INDEX);i++)
-					sub_place[i] = NULL;
-
-				go_one_step(ssd, sub_place, sub_r_req_count, SR_R_C_A_TRANSFER, INDEPENDENT_MUTLI_PLANE);
-				ssd->channel_head[channel].channel_busy_flag = 1;
-				continue;
-			}
-		}
-		if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE)
-		{
-			sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, MUTLI_PLANE);
-			if ((sub_r_req_count >1) && (sub_r_req_count <= ssd->parameter->plane_die))
-			{
-				// printf("imp\n");
-				for(i = sub_r_req_count;i<(ssd->parameter->plane_die * ssd->parameter->subpage_page* PAGE_INDEX);i++)
-					sub_place[i] = NULL;
-
-				go_one_step(ssd, sub_place, sub_r_req_count, SR_R_C_A_TRANSFER, MUTLI_PLANE);
-				ssd->channel_head[channel].channel_busy_flag = 1;
-				continue;
 			}
 		}
 
@@ -1465,10 +1473,10 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request ** subs, unsigned i
 							{
 								printf("%d lpn %d state %d\n",l, subs[l]->lpn, subs[l]->state);
 							}
-							while(1){}
+							// while(1){}
 							break;
 						}
-					ssd->SOML_read_count += subs_count;
+					ssd->IMP_SOML_read_count += subs_count;
 				}else if (command == SOML_READ){
 					int count = 0;
 					int tmp_state;
@@ -1506,7 +1514,7 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request ** subs, unsigned i
 							{
 								printf("%d lpn %d state %d\n",l, subs[l]->lpn, subs[l]->state);
 							}
-							while(1){}
+							// while(1){}
 							break;
 						}
 					ssd->SOML_read_count += subs_count;
